@@ -31,9 +31,9 @@ jobs:
         with:
           node-version: 16.x
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
-        with:
-          languages: javascript
+        uses: github/codeql-action/init@v2
+        with:
+          languages: javascript
       - name: Npm install
         run: npm install --legacy-peer-deps
       - name: Linter
@@ -43,5 +43,5 @@ jobs:
         env:
          CI: ""
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v2
       
