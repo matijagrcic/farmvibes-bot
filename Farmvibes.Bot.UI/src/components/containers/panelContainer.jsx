@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Panel, Stack, PanelType } from "@fluentui/react";
+import { useIntl } from "react-intl";
 
 export const PanelContainer = ({
   panelType,
@@ -14,6 +15,7 @@ export const PanelContainer = ({
   panelWidth,
 }) => {
   const [panelSize, setPanelSize] = React.useState(null);
+  const intl = useIntl();
 
   React.useEffect(() => {
     switch (panelType) {
@@ -41,7 +43,7 @@ export const PanelContainer = ({
         panelDismiss();
       }}
       headerText={header}
-      closeButtonAriaLabel='Close'
+      closeButtonAriaLabel={intl.formatMessage({ id: "general.close" })}
       isLightDismiss={lightDismiss}
       type={panelSize}
       isFooterAtBottom={true}

@@ -1,6 +1,6 @@
 import React from "react";
 import { useSessionStorage } from "react-use";
-import { setToStorage } from "helpers/utils";
+import { clearStorage } from "helpers/utils";
 import { defaultAuthState } from "./defaultValues";
 
 const STOREGE_KEY = "authentication";
@@ -17,7 +17,8 @@ export function AuthenticationProvider({ children }) {
     setAuthentication({ isAuthenticated: true, principal });
 
   const logout = () => {
-    setToStorage("user");
+    // setToStorage("user");
+    clearStorage();
     setAuthentication(defaultAuthState);
   };
 

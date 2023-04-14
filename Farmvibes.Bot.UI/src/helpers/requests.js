@@ -1,7 +1,8 @@
-import { backendPath, defaultAuthState } from "../global/defaultValues";
-import { getFromStorage, setToStorage } from "./utils";
+import * as App from "../index";
+import { backendPath } from "../global/defaultValues";
+import { getToken, isTokenExpired } from "./utils";
+import { loginRequest } from "../authConfig";
 
-// const cache = {};
 const request = async ({
   url,
   params = {},
@@ -10,30 +11,68 @@ const request = async ({
   json,
   blob,
 }) => {
-  // Quick return from cache.
-  // const cacheKey = JSON.stringify({ url, params, method });
-  // if (cache[cacheKey]) {
-  //   return cache[cacheKey];
-  // }
+  const instance = App.msalInstance;
 
+  let accessToken = getToken(instance);
+  let isValidToken = isTokenExpired(accessToken);
+  if (isValidToken) {
+    return await makeRequest({
+      accessToken,
+      json,
+      params,
+      method,
+      blob,
+      url,
+      local,
+    }).then((r) => {
+      return r;
+    });
+  } else {
+    //MSAL has a problem, it will return expired token instead of renewed so to remedy situation,
+    //let's go back to log-in page.
+    return instance
+      .loginPopup(loginRequest)
+      .catch((e) => {
+        console.log(e);
+      })
+      .then(async () => {
+        accessToken = getToken(instance);
+        return await makeRequest({
+          accessToken,
+          json,
+          params,
+          method,
+          blob,
+          url,
+          local,
+        }).then((r) => r);
+      });
+  }
+};
+
+const makeRequest = async ({
+  accessToken,
+  params,
+  method,
+  json,
+  blob,
+  url,
+  local,
+}) => {
   const headers = new Headers();
   if (json) headers.append("Content-Type", "application/json");
-
-  //Let's apply token to requests if user is authenticated
-  if (
-    getFromStorage("user") !== null &&
-    Object.entries(getFromStorage("user")).length > 0
-  )
-    headers.append("Authorization", `Bearer ${getFromStorage("user").token}`);
-
+  headers.append("Authorization", `Bearer ${accessToken}`);
   const options = {
     method,
     headers,
   };
+
   let uri = local ? backendPath + url : url;
   if (method === "GET") {
     if (Object.entries(params).length > 0)
-      uri += `?${new URLSearchParams(params).toString()}`;
+      uri += url.includes("?")
+        ? `&${new URLSearchParams(params).toString()}`
+        : `?${new URLSearchParams(params).toString()}`;
   } else if (json) options.body = JSON.stringify(params);
   else options.body = params;
 
@@ -41,29 +80,24 @@ const request = async ({
 
   const result = await fetch(uri, options);
 
-  if (!result.ok) {
-    /*User's token has expired, let's take them back to sign in */
-    if (result.status === 401 && !window.location.pathname.includes("login")) {
-      setToStorage("user");
-      window.sessionStorage.setItem("authentication", defaultAuthState);
-      setTimeout((window.location = "/admin/login"));
-    } else {
-      return result.json();
-    }
+  if (result.status !== 204) {
+    if (blob) return result.blob();
+    else return result.json();
   } else {
-    if (result.status !== 204) {
-      if (blob) return result.blob();
-      else return result.json();
-    } else {
-      return JSON.stringify({ status: result.status });
-    }
+    return JSON.stringify({ status: result.status });
   }
-
-  // cache[cacheKey] = result;
 };
 
-export const get = ({ url, params, local = true, json = true, blob = false }) =>
-  request({ url, params, method: "GET", local, json, blob });
+export async function get({
+  url,
+  params,
+  local = true,
+  json = true,
+  blob = false,
+}) {
+  let res = await request({ url, params, method: "GET", local, json, blob });
+  return res;
+}
 export const post = (url, params, local = true, json = true) =>
   request({ url, params, method: "POST", local, json });
 export const remove = (url, params, local = true, json = true) =>

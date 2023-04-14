@@ -1,8 +1,10 @@
+import { capitaliseSentense } from "helpers/utils";
 import React from "react";
+import { FormattedMessage } from "react-intl";
 
 const routes = {
   key: "home",
-  name: "Dashboard",
+  name: <FormattedMessage id="general.nav.dashboard" />,
   icon: "Home",
   path: "/",
   component: React.lazy(() => import("./pages/dashboard")),
@@ -16,35 +18,47 @@ const routes = {
     },
     {
       key: "profile",
-      name: "Profile",
+      name: <FormattedMessage id="general.nav.profile" />,
       isHidden: true,
     },
     {
       key: "content",
-      name: "Content",
+      name: <FormattedMessage id="general.nav.sections" />,
       icon: "visualizeApp",
       children: [
         {
           key: "services",
-          name: "Services",
+          name: (
+            <FormattedMessage id="service" values={{ count: 2 }}>
+              {(txt) => capitaliseSentense(txt[0])}
+            </FormattedMessage>
+          ),
           icon: "CRMServices",
           component: React.lazy(() => import("./pages/services")),
         },
         {
-          key: "bot-content",
-          name: "Bot Content",
+          key: "content-library",
+          name: <FormattedMessage id="content.page.title" />,
           icon: "TextDocument",
-          component: React.lazy(() => import("./pages/bot-content")),
+          component: React.lazy(() => import("./pages/content-library")),
         },
         {
           key: "menus",
-          name: "Menus",
+          name: (
+            <FormattedMessage id="menu" values={{ count: 2 }}>
+              {(txt) => capitaliseSentense(txt[0])}
+            </FormattedMessage>
+          ),
           icon: "CollapseMenu",
           component: React.lazy(() => import("./pages/menu")),
         },
         {
           key: "bot-users",
-          name: "Platform Users",
+          name: (
+            <FormattedMessage id="user" values={{ count: 2 }}>
+              {(txt) => capitaliseSentense(txt[0])}
+            </FormattedMessage>
+          ),
           icon: "People",
           component: React.lazy(() => import("./pages/bot-user")),
         },
@@ -52,52 +66,41 @@ const routes = {
     },
     {
       key: "mangement",
-      name: "System Management",
+      name: <FormattedMessage id="general.nav.systemmanagement" />,
       icon: "managementApp",
       children: [
         {
           key: "languages",
-          name: "Languages",
+          name: (
+            <FormattedMessage id="language" values={{ count: 2 }}>
+              {(txt) => capitaliseSentense(txt[0])}
+            </FormattedMessage>
+          ),
           icon: "LocaleLanguage",
           component: React.lazy(() => import("./pages/languages")),
         },
         {
           key: "channels",
-          name: "Channels",
+          name: (
+            <FormattedMessage id="channels" values={{ count: 2 }}>
+              {(txt) => capitaliseSentense(txt[0])}
+            </FormattedMessage>
+          ),
           icon: "InternetSharing",
           component: React.lazy(() =>
             import("./pages/configurations/channels")
           ),
         },
         {
-          key: "location-information",
-          name: "Location Management",
-          icon: "POI",
-          children: [
-            {
-              key: "administrative-units",
-              name: "Administrative Units",
-              icon: "Nav2DMapView",
-              component: React.lazy(() =>
-                import("./pages/configurations/locations/administrativeUnits")
-              ),
-            },
-            {
-              key: "locations",
-              name: "Locations",
-              icon: "Nav2DMapView",
-              component: React.lazy(() =>
-                import("./pages/configurations/locations/locations")
-              ),
-            },
-          ],
-        },
-        {
-          key: "validations",
-          name: "Validation Groups",
-          icon: "TriggerApproval",
+          key: "admin_users",
+          name: (
+            <FormattedMessage id="user.admin" values={{ count: 2 }}>
+              {(txt) => capitaliseSentense(txt[0])}
+            </FormattedMessage>
+          ),
+          icon: "Teamwork",
           component: React.lazy(() =>
-            import("./pages/configurations/validations")
+            import("./pages/configurations/admin-users")
           ),
         },
       ],

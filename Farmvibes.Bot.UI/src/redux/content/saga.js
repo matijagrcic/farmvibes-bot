@@ -10,7 +10,7 @@ import {
   REMOVE_CONTENT_TEXT_ITEM,
 } from "../actions";
 import { post, get, remove, patch } from "../../helpers/requests";
-
+import { encodeGroupURI } from "../../helpers/utils";
 import {
   getContentsSuccess,
   getContentsError,
@@ -30,12 +30,10 @@ import {
 
 function* fetchContents({ payload }) {
   try {
+    let groups = encodeGroupURI("groups", ["content:read", "translations"]);
     const result = yield call(get, {
-      url: `contents`,
-      params: {
-        ...payload,
-        ...{ "groups[]": "translations" },
-      },
+      url: `contents?${groups}`,
+      params: payload,
     });
     //group content
 
@@ -47,13 +45,14 @@ function* fetchContents({ payload }) {
 
 function* createContentItem({ payload }) {
   try {
-    const { content, history } = payload;
-    const newItem = yield call(async () => {
-      await post("contents", content)
-        .then((result) => result)
-        .catch((error) => error);
-    });
-    yield put(createContentSuccess(newItem, history));
+    const { content } = payload;
+    const newContent = yield call(
+      async () =>
+        await post("contents", content)
+          .then((result) => result)
+          .catch((error) => error)
+    );
+    yield put(createContentSuccess(newContent));
   } catch (error) {
     yield put(createContentError(error));
   }
@@ -64,7 +63,7 @@ function* createContentTextItem({ payload }) {
     const { content } = payload;
     const newItem = yield call(
       async () =>
-        await post(`contents/add_text`, content)
+        await post(`content_texts`, content)
           .then((result) => result)
           .catch((error) => error)
     );
@@ -75,8 +74,8 @@ function* createContentTextItem({ payload }) {
 }
 
 function* fetchContent({ payload }) {
-  const { content, history } = payload;
-  yield call(history.push, `details/${content.id}`);
+  const { content, navigate } = payload;
+  yield call(navigate, `details/${content.id}`);
 }
 
 function* removeContent({ payload }) {
@@ -99,7 +98,10 @@ function* updateContent({ payload }) {
     const { content } = payload;
     const response = yield call(
       async () =>
-        await patch("contents", { id: content.id })
+        await patch(
+          `contents/${content.id.substring(content.id.lastIndexOf("/") + 1)}`,
+          { ...content }
+        )
           .then((result) => result)
           .catch((error) => error)
     );
@@ -111,10 +113,10 @@ function* updateContent({ payload }) {
 
 function* removeContentTextItem({ payload }) {
   try {
-    const { content } = payload;
+    const { id } = payload;
     const response = yield call(
       async () =>
-        await remove(`content_texts/${content.id}`)
+        await remove(`content_texts/${id}`)
           .then((result) => result)
           .catch((error) => error)
     );
@@ -129,7 +131,12 @@ function* updateContentTextItem({ payload }) {
     const { content } = payload;
     const response = yield call(
       async () =>
-        await patch(`content_texts/${content.id}`, content)
+        await patch(
+          `contents/${content.content.substring(
+            content.content.lastIndexOf("/") + 1
+          )}/update_text/${content.id}`,
+          content
+        )
           .then((result) => result)
           .catch((error) => error)
     );

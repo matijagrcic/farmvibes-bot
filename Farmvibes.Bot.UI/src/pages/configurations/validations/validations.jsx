@@ -7,10 +7,9 @@ import { Grouped } from "components/containers";
 import { DynamicForm } from "components/forms";
 import { addValidationGroup } from "global/defaultValues";
 import {
-  makeListRequest,
-  getFromStorage,
   unflatten,
   addTranslationLocale,
+  getPlatformComponents,
 } from "helpers/utils";
 import {
   getValidations,
@@ -20,6 +19,8 @@ import {
   removeValidation,
   createValidationAttribute,
 } from "../../../redux/actions";
+import { useIntl } from "react-intl";
+import { useLanguages } from "helpers/utilities";
 
 const Validations = ({
   getValidationsAction,
@@ -30,7 +31,8 @@ const Validations = ({
   validations,
   loading,
 }) => {
-  const [locale, setLocale] = React.useState(getFromStorage("locale"));
+  const intl = useIntl();
+  const { locale } = useLanguages();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogTitle, setDialogTitle] = React.useState("");
   const [dialogConfirmText, setDialogConfirmText] = React.useState("");
@@ -38,36 +40,32 @@ const Validations = ({
   const [questionTypes, setQuestionTypes] = React.useState([]);
   const [attibutes, setAttibutes] = React.useState([]);
   const [activeValidation, setActiveValidation] = React.useState(null);
-  const fetchRecords = React.useCallback((currentPage) => {
+  const fetchRecords = (currentPage) => {
     getValidationsAction({ page: currentPage, itemsPerPage: 10 });
-  });
+  };
   const valuesChanged = (values) => {
     setFormValues(values);
   };
   React.useEffect(() => {
     getValidationsAction({ page: 1, itemsPerPage: 10 });
-    makeListRequest({
-      url: `question_types`,
-      options: {
-        "groups[]": "translations",
-      },
-    }).then((result) => {
-      //May be a new menu without lables
-      setQuestionTypes(result);
-    });
+    getPlatformComponents(
+      "question_types?groups[]=translations",
+      "questionTypes"
+    ).then((result) => setQuestionTypes(result));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const addValidation = (action = null, group) => {
-    let title = "validation";
-    let confirmButtonText = "Create";
+    let title = intl.formatMessage({ id: "validation" }, { count: 1 });
+    let confirmButtonText = intl.formatMessage({ id: "general.create" });
     if (action !== null) {
       if (action.includes("edit")) {
-        title = `Edit ${title}`;
+        title = intl.formatMessage({ id: "general.edit" }, { subject: title });
         confirmButtonText = "Update";
       } else {
-        title = `Create ${title} item`;
+        title = intl.formatMessage({ id: "general.add" }, { subject: title });
         setAttibutes([
           {
-            label: "Description",
+            label: intl.formatMessage({ id: "general.description" }),
             name: "description",
             key: "description",
             type: "string",
@@ -76,7 +74,9 @@ const Validations = ({
             variant: "northstar",
           },
           {
-            label: "Default error message",
+            label: intl.formatMessage({
+              id: "validation.default.error.message",
+            }),
             name: "errorMessage",
             key: "errorMessage",
             type: "string",
@@ -85,9 +85,9 @@ const Validations = ({
             variant: "northstar",
           },
           {
-            label: "Type",
+            label: intl.formatMessage({ id: "general.type" }),
             name: "type",
-            placeholder: "Type of validation",
+            placeholder: intl.formatMessage({ id: "validation.type" }),
             key: "type",
             type: "choice",
             required: true,
@@ -96,20 +96,20 @@ const Validations = ({
             options: [
               {
                 key: "regex-type",
-                label: "Regex",
+                label: intl.formatMessage({ id: "validation.regex" }),
                 value: "Regex",
                 name: "type",
               },
               {
                 key: "expression-type",
-                label: "Expression",
+                label: intl.formatMessage({ id: "validation.expression" }),
                 value: "Expression",
                 name: "type",
               },
             ],
           },
           {
-            label: "Validation pattern or expression",
+            label: intl.formatMessage({ id: "validation.pattern" }),
             name: "expression",
             key: "expression",
             type: "string",
@@ -154,9 +154,17 @@ const Validations = ({
         addFunction={addValidation}
         removeFunction={removeValidationAction}
         loading={loading}
-        addFunctionTitle='Add validation group'
-        pageTitle='Validation groups'
-        pageDescription='List of input validations available on the application'
+        addFunctionTitle={intl.formatMessage(
+          { id: "general.add" },
+          {
+            subject: intl.formatMessage(
+              { id: "validation.group" },
+              { count: 1 }
+            ),
+          }
+        )}
+        pageTitle={intl.formatMessage({ id: "validation.group" }, { count: 2 })}
+        pageDescription={intl.formatMessage({ id: "validation.available" })}
         childRow={"description"}
         groups={validations.map((item) => {
           return {
@@ -168,26 +176,26 @@ const Validations = ({
             collapsible: false,
             header: (
               <Text
-                weight='bold'
+                weight="bold"
                 content={`${item.translations[locale]?.description}`}
-                size='large'
+                size="large"
               />
             ),
           };
         })}
         header={[
           {
-            content: "Description",
+            content: intl.formatMessage({ id: "general.description" }),
             styles: { flexGrow: 4 },
             key: "header-title-description",
           },
           {
-            content: "Created on",
+            content: intl.formatMessage({ id: "general.created.on" }),
             styles: { flexGrow: 1 },
             key: "header-title-created",
           },
           {
-            content: "Updated on",
+            content: intl.formatMessage({ id: "general.updated.on" }),
             styles: { flexGrow: 1 },
             key: "header-title-updated",
           },
@@ -195,7 +203,7 @@ const Validations = ({
         ]}
       />
       <Dialog
-        cancelButton='Cancel'
+        cancelButton={intl.formatMessage({ id: "general.cancel" })}
         confirmButton={dialogConfirmText}
         onConfirm={() => {
           let data = unflatten(addTranslationLocale(formValues));
@@ -228,7 +236,7 @@ const Validations = ({
                 ? [
                     ...addValidationGroup,
                     {
-                      label: "questionTypes",
+                      label: intl.formatMessage({ id: "question.types" }),
                       name: "questionTypes",
                       key: "questionTypes",
                       type: "multiple-choice",

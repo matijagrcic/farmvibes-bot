@@ -30,7 +30,8 @@ const reducer = (state = initialState, action) => {
         loading: true,
       };
     case GET_LANGUAGES_SUCCESS:
-      setToStorage("languages", action.payload);
+      //Let's update default locale for showing content
+      setToStorage("locale", action.payload.filter((l) => l.isDefault)[0].code);
       return {
         ...state,
         languages: action.payload,
@@ -61,12 +62,12 @@ const reducer = (state = initialState, action) => {
         loading: false,
       };
     case CREATE_LANGUAGE_SUCCESS:
-      const updated = [...state.languages, action.payload.language];
-      setToStorage("languages", updated);
+      const newVal = [...state.languages, action.payload.language];
+      setToStorage("languages", newVal);
       return {
         ...state,
         language: action.payload.language,
-        languages: updated,
+        languages: newVal,
         loading: false,
       };
     case UPDATE_LANGUAGE:
@@ -82,15 +83,26 @@ const reducer = (state = initialState, action) => {
         loading: false,
       };
     case UPDATE_LANGUAGE_SUCCESS:
-      const idx = state.languages.findIndex(
-        (lingo) => state.language.language.code === lingo.code
-      );
-      state.languages.splice(idx, 1, action.payload.language);
-      setToStorage("languages", state.languages);
+      let updlanguages = state.languages.map((itm) => {
+        if (
+          action.payload.language.isDefault &&
+          itm.id !== action.payload.language.id
+        ) {
+          itm["isDefault"] = false;
+        }
+        return itm.id === action.payload.language.id
+          ? action.payload.language
+          : itm;
+      });
+
+      setToStorage("languages", updlanguages);
+
+      //Incase we have a new default, let's update it in the storage
+      setToStorage("locale", updlanguages.filter((l) => l.isDefault)[0].code);
       return {
         ...state,
         language: action.payload.language,
-        languages: state.languages,
+        languages: updlanguages,
         loading: false,
       };
     case REMOVE_LANGUAGE:

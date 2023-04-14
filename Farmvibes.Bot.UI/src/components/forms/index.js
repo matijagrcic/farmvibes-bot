@@ -8,6 +8,7 @@ export * from "./checkboxField";
 export * from "./dynamicForm";
 export * from "./arrayField";
 export * from "./uploadField";
-export * from "./richText";
+export * from "./rte";
 export * from "./contentForm";
 export * from "./serviceForm";
+export * from "./dynamicDropdowns";

@@ -1,5 +1,4 @@
 import React from "react";
-import { FontSizes, FontWeights } from "@fluentui/theme";
 import { connect } from "react-redux";
 import { getStyles } from "components/layout/Sidebar/Nav/Nav.styles";
 import {
@@ -13,8 +12,9 @@ import { PanelContainer, DialogBox } from "components/containers";
 import { Table } from "components/containers/table";
 import { Stack, styled } from "@fluentui/react";
 import { DynamicForm } from "components/forms";
-import { addUser } from "global/defaultValues";
-import { flat, getFromStorage } from "helpers/utils";
+import { capitaliseSentense, flat } from "helpers/utils";
+import { useLanguages } from "helpers/utilities";
+import { useIntl } from "react-intl";
 
 const BotUsers = ({
   loading,
@@ -26,14 +26,15 @@ const BotUsers = ({
   removeUserAction,
   error,
 }) => {
-  const [locale, setLocale] = React.useState(getFromStorage("locale"));
+  const { locale } = useLanguages();
   const [panelHidden, setPanelHidden] = React.useState(false);
   const [panelTitle, setPanelTitle] = React.useState("");
   const [formValues, setFormValues] = React.useState({});
   const [persistStatus, setPersistStatus] = React.useState(undefined);
-  const [dialogHidden, setDialogHidden] = React.useState(true);
+  const [dialogHidden, setDialogHidden] = React.useState(false);
   const [dialogTitle, setDialogTitle] = React.useState("");
   const [dialogContent, setDialogContent] = React.useState([]);
+  const intl = useIntl();
   const [dialogProceedFunction, setDialogProceedFunction] =
     React.useState(null);
   const [dialogProceedFunctionParams, setDialogProceedFunctionParams] =
@@ -43,6 +44,29 @@ const BotUsers = ({
     return setPanelHidden(!panelHidden);
   };
 
+  const addUser = [
+    {
+      name: "fullname",
+      key: "fullname",
+      required: true,
+      length: 50,
+      type: "string",
+      label: intl.formatMessage({ id: "general.name" }),
+      translatable: false,
+      disabled: true,
+    },
+    {
+      name: "language",
+      key: "language",
+      required: true,
+      length: 3,
+      type: "string",
+      label: intl.formatMessage({ id: "language" }, { count: 1 }),
+      translatable: false,
+      disabled: true,
+    },
+  ];
+
   const toggleDialog = () => {
     setDialogHidden(!dialogHidden);
   };
@@ -50,36 +74,42 @@ const BotUsers = ({
   const menuActions = [
     {
       key: "newItem",
-      text: "New",
+      text: intl.formatMessage({ id: "general.new" }, { subject: "" }),
       cacheKey: "myCacheKey", // changing this key will invalidate this item's cache
       iconProps: { iconName: "Add" },
+      disabled: true,
       onClick: () => {
-        setPanelTitle("Add User");
+        setPanelTitle(
+          intl.formatMessage(
+            { id: "general.add" },
+            { subject: intl.formatMessage({ id: "user" }, { count: 1 }) }
+          )
+        );
         showPanel();
       },
     },
     {
       key: "edit",
-      text: "Edit",
+      text: intl.formatMessage({ id: "general.edit" }, { subject: "" }),
       iconProps: { iconName: "Edit" },
       disabled: true,
       onClick: () => console.log("Share"),
     },
     {
       key: "import",
-      text: "Import users",
+      text: intl.formatMessage({ id: "user.import" }),
       iconProps: { iconName: "Import" },
       disabled: true,
     },
     {
       key: "export",
-      text: "Export users",
+      text: intl.formatMessage({ id: "user.export" }),
       iconProps: { iconName: "Export" },
       disabled: true,
     },
     {
       key: "delete",
-      text: "Delete",
+      text: intl.formatMessage({ id: "general.delete" }, { subject: "" }),
       iconProps: { iconName: "Delete" },
       disabled: true,
     },
@@ -87,7 +117,7 @@ const BotUsers = ({
 
   const columns = [
     {
-      name: "Name",
+      name: intl.formatMessage({ id: "general.name" }),
       fieldName: `fullname`,
       key: `fullname`,
       data: "string",
@@ -96,11 +126,22 @@ const BotUsers = ({
       isMultiline: true,
       isSorted: false,
       isSortedDescending: false,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
     },
     {
-      name: "Contacts",
+      name: capitaliseSentense(
+        intl.formatMessage(
+          {
+            id: "contacts",
+          },
+          { count: 1 }
+        )
+      ),
       fieldName: `contacts`,
       key: `contacts`,
       data: "string",
@@ -110,17 +151,31 @@ const BotUsers = ({
       isSorted: false,
       isSortedDescending: false,
       minWidth: 250,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
       onRender: (item) => {
         return item.botUserContacts.map((contact) => {
           return (
-            <Stack>
+            <Stack key={`contact-${contact.id}`}>
               <div>
-                <strong>Channel</strong>: {contact.channel.name.toUpperCase()}
+                <strong>
+                  {capitaliseSentense(
+                    intl.formatMessage({ id: "channels" }, { count: 1 })
+                  )}
+                </strong>
+                : {contact.channel.name.toUpperCase()}
               </div>
               <div>
-                <strong>Contact</strong>: {contact.value.toUpperCase()}
+                <strong>
+                  {capitaliseSentense(
+                    intl.formatMessage({ id: "contacts" }, { count: 1 })
+                  )}
+                </strong>
+                : {contact.value.toUpperCase()}
               </div>
             </Stack>
           );
@@ -128,7 +183,9 @@ const BotUsers = ({
       },
     },
     {
-      name: "Language",
+      name: capitaliseSentense(
+        intl.formatMessage({ id: "language" }, { count: 1 })
+      ),
       key: "language",
       fieldName: "language",
       data: "string",
@@ -137,11 +194,15 @@ const BotUsers = ({
       isSorted: false,
       minWidth: 150,
       isSortedDescending: false,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
     },
     {
-      name: "Registered on",
+      name: intl.formatMessage({ id: "general.registered.on" }, { count: 1 }),
       key: "createdAt",
       fieldName: "createdAt",
       data: "string",
@@ -150,16 +211,26 @@ const BotUsers = ({
       isSorted: true,
       minWidth: 150,
       isSortedDescending: true,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
       onRender: (dt) => {
-        return new Date(dt.createdAt).toLocaleString();
+        return intl.formatDate(new Date(dt.createdAt), {
+          year: "numeric",
+          month: "short",
+          hour: "numeric",
+          minute: "numeric",
+          day: "numeric",
+        });
       },
     },
   ];
 
   const onItemInvoked = (item) => {
-    setPanelTitle("Edit item");
+    setPanelTitle(intl.formatMessage({ id: "general.edit" }, { subject: "" }));
     let temp = flat(item);
     setFormValues(
       Object.keys(temp).reduce((res, key) => {
@@ -173,10 +244,17 @@ const BotUsers = ({
   const onItemRemove = (item) => {
     toggleDialog();
     setDialogProceedFunctionParams(item);
-    setDialogTitle("Remove user");
+    setDialogTitle(
+      intl.formatMessage({
+        id: "user.remove",
+      })
+    );
     setDialogProceedFunction(() => removeUserAction);
     setDialogContent(
-      `You are about to remove ${item.fullname} from the platform. The user will not be able to access the platform again unless they register. Would you like to proceed?`
+      intl.formatMessage(
+        { id: "user.remove.confirm" },
+        { fullname: item.fullname }
+      )
     );
   };
 
@@ -203,7 +281,9 @@ const BotUsers = ({
         isCompactMode={false}
         locale={locale}
         getRecords={getUsersAction}
-        header={"Users"}
+        header={capitaliseSentense(
+          intl.formatMessage({ id: "user" }, { count: 2 })
+        )}
       />
       {panelTitle.length > 0 && (
         <PanelContainer
@@ -215,6 +295,7 @@ const BotUsers = ({
           content={
             <DynamicForm
               submitStatus={persistStatus}
+              disableSubmit={true}
               users={users}
               inputs={addUser}
               onSubmit={
@@ -227,7 +308,7 @@ const BotUsers = ({
               inputValues={formValues}
             />
           }
-          description=''
+          description=""
         />
       )}
       <DialogBox
@@ -235,8 +316,8 @@ const BotUsers = ({
         dialogHidden={dialogHidden}
         showDialog={toggleDialog}
         content={dialogContent}
-        cancel='Cancel'
-        confirm='Confirm'
+        cancel={intl.formatMessage({ id: "general.cancel" })}
+        confirm={intl.formatMessage({ id: "general.confirm" })}
         proceedFunction={dialogProceedFunction}
         params={dialogProceedFunctionParams}
       />

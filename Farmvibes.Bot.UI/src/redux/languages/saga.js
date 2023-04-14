@@ -21,18 +21,20 @@ import {
   removeLanguageSuccess,
 } from "./actions";
 
-import { makeListRequest } from "helpers/utils";
+import { makeListRequest, encodeGroupURI } from "helpers/utils";
 
 function* fetchLanguages({ payload }) {
   try {
+    let groups = encodeGroupURI("groups", ["languages:read", "translations"]);
     // eslint-disable-next-line no-useless-computed-key
     const result = yield call(makeListRequest, {
-      url: "languages",
-      options: {
-        ...payload,
-        ...{ "groups[]": "translations" },
-      },
+      url: `languages?${groups}`,
+      options: payload,
     });
+    if(!result)
+      yield put(getLanguagesError(result));
+    else
+      yield put(getLanguagesSuccess(result));
     yield put(getLanguagesSuccess(result));
   } catch (error) {
     yield put(getLanguagesError(error));
@@ -42,8 +44,11 @@ function* fetchLanguages({ payload }) {
 function* createLanguageItem({ payload }) {
   try {
     const { language } = payload;
-    const newItem = yield call(async () => await post("languages", language));
-    yield put(createLanguageSuccess(newItem));
+    const result = yield call(async () => await post("languages", language));
+    if(result.hasOwnProperty('title') && result.title.includes('error'))
+      yield put(createLanguageError(result));
+    else
+      yield put(createLanguageSuccess(result));
   } catch (error) {
     yield put(createLanguageError(error));
   }

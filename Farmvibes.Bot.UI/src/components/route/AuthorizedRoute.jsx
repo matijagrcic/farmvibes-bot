@@ -1,37 +1,12 @@
 import React from "react";
-import { Route, Redirect } from "react-router-dom";
-import { useAuthentication } from "global/authentication";
+import { Navigate } from "react-router-dom";
+import { useIsAuthenticated } from "@azure/msal-react";
 
-export function AuthorizedRoute({
-  id,
-  path,
-  exact,
-  strict,
-  isPublic,
-  children,
-  ...rest
-}) {
-  const { isAuthenticated } = useAuthentication();
+export const AuthorizedRoute = ({ isPublic, children }) => {
+  const isAuthenticated = useIsAuthenticated();
   const authorized = isPublic || isAuthenticated;
-  return (
-    <Route
-      {...rest}
-      key={id}
-      path={path}
-      exact={exact}
-      strict={strict}
-      render={({ location }) =>
-        authorized ? (
-          children
-        ) : (
-          <Redirect
-            to={{
-              pathname: "/login",
-              state: { from: location },
-            }}
-          />
-        )
-      }
-    />
-  );
-}
+  if (!authorized) {
+    return <Navigate to="/login" />;
+  }
+  return children;
+};

@@ -1,6 +1,5 @@
 import React from "react";
 import { Dropdown, Stack } from "@fluentui/react";
-import { reactionClassName } from "@fluentui/react-northstar";
 
 export const DropDownField = ({
   name,
@@ -17,7 +16,6 @@ export const DropDownField = ({
   styles,
 }) => {
   const [selectedItems, setSelectedItems] = React.useState([]);
-
   React.useEffect(() => {
     if (selectedItems.length > 0)
       handleChange(
@@ -26,18 +24,31 @@ export const DropDownField = ({
           return selected.key;
         })
       );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedItems]);
+
+  const markSelected = (optArray) => {
+    setSelectedItems(
+      optArray.filter((option) => {
+        return option.key === defaultSelectedKey;
+      })
+    );
+  };
 
   React.useEffect(() => {
     if (
       defaultSelectedKey !== undefined &&
       typeof defaultSelectedKey === "string"
-    )
-      setSelectedItems(
-        options.filter((option) => {
-          return option.key === defaultSelectedKey;
-        })
-      );
+    ) {
+      Array.isArray(options)
+        ? markSelected(options)
+        : Promise.resolve(options)
+            .catch(() => {})
+            .then((response) => {
+              markSelected(response);
+            });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultSelectedKey]);
 
   return (
@@ -53,7 +64,8 @@ export const DropDownField = ({
         defaultSelectedKeys={defaultSelectedKeys}
         multiSelect={multiSelect}
         name={name}
-        onChange={(event, item) => {
+        fluid
+        onChange={(_event, item) => {
           setSelectedItems((prev) => {
             if (multiSelect) {
               return item.selected

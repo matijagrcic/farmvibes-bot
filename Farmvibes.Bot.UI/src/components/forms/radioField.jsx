@@ -1,5 +1,6 @@
 import React from "react";
 import { ChoiceGroup, Stack } from "@fluentui/react";
+import { RadioGroup } from "@fluentui/react-northstar";
 
 export const RadioField = ({
   name,
@@ -11,20 +12,29 @@ export const RadioField = ({
   disabled = false,
   defaultSelectedKey,
   handleChange,
+  variant = "default",
 }) => {
   return (
     <Stack>
-      <ChoiceGroup
-        label={label}
-        required={required}
-        options={options}
-        disabled={disabled}
-        placeholder={placeholder}
-        description={description}
-        defaultSelectedKey={defaultSelectedKey}
-        name={name}
-        onChange={handleChange}
-      />
+      {variant === "default" ? (
+        <ChoiceGroup
+          label={label}
+          required={required}
+          options={options}
+          disabled={disabled}
+          placeholder={placeholder}
+          description={description}
+          defaultSelectedKey={defaultSelectedKey}
+          name={name}
+          onChange={handleChange}
+        />
+      ) : (
+        <RadioGroup
+          defaultCheckedValue={defaultSelectedKey}
+          items={options}
+          onCheckedValueChange={handleChange}
+        />
+      )}
     </Stack>
   );
 };

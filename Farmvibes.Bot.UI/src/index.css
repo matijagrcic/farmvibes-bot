@@ -183,3 +183,32 @@ a.exchangeName {
 .ui-accordion__content {
   margin-inline-start: 0rem !important;
 }
+
+.loader {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  z-index: 28;
+}
+
+li[title="Dashboard"] {
+  display: none;
+}
+
+input.error, textarea.error  {
+  border: 1px solid rgb(196, 49, 75);
+}
+
+.error-message {
+  color: rgb(196, 49, 75);
+}
+
+.ProseMirror,
+textarea:focus {
+  outline: 0;
+  min-height: 100px;
+}
+
+.ProseMirror p {
+  display: block;
+}

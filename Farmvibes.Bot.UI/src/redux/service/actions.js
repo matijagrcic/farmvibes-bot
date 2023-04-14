@@ -8,6 +8,8 @@ import {
   GET_SERVICE,
   GET_SERVICE_SUCCESS,
   GET_SERVICE_ERROR,
+  RESET_SERVICE_ITEM,
+  UPDATE_SERVICE_ITEM,
   REMOVE_SERVICE,
   REMOVE_SERVICE_SUCCESS,
   REMOVE_SERVICE_ERROR,
@@ -23,6 +25,9 @@ import {
   UPDATE_QUESTION_VALIDATION_ERROR,
   UPDATE_QUESTION_VALIDATION_SUCCESS,
   UPDATE_QUESTION_VALIDATION,
+  GET_QUESTIONS,
+  GET_QUESTIONS_SUCCESS,
+  GET_QUESTIONS_ERROR,
   CREATE_QUESTION,
   CREATE_QUESTION_SUCCESS,
   CREATE_QUESTION_ERROR,
@@ -49,14 +54,14 @@ export const getServicesError = (error) => ({
   payload: error,
 });
 
-export const createService = (service, history) => ({
+export const createService = (service, navigate) => ({
   type: CREATE_SERVICE,
-  payload: { service, history },
+  payload: { service, navigate },
 });
 
-export const createServiceSuccess = (service, history) => ({
+export const createServiceSuccess = (service, navigate) => ({
   type: CREATE_SERVICE_SUCCESS,
-  payload: { service, history },
+  payload: { service, navigate },
 });
 
 export const createServiceError = (error) => ({
@@ -69,7 +74,7 @@ export const getService = (serviceId, groups) => ({
   payload: { serviceId, groups },
 });
 
-export const getServiceSuccess = (service, history) => ({
+export const getServiceSuccess = (service) => ({
   type: GET_SERVICE_SUCCESS,
   payload: service,
 });
@@ -77,6 +82,15 @@ export const getServiceSuccess = (service, history) => ({
 export const getServiceError = (error) => ({
   type: GET_SERVICE_ERROR,
   payload: error,
+});
+
+export const updateServiceObj = (values) => ({
+  type: UPDATE_SERVICE_ITEM,
+  payload: values,
+});
+
+export const resetServiceObj = () => ({
+  type: RESET_SERVICE_ITEM,
 });
 
 export const updateService = (service) => ({
@@ -109,6 +123,21 @@ export const removeServiceError = (error) => ({
   payload: error,
 });
 
+export const getQuestions = (service) => ({
+  type: GET_QUESTIONS,
+  payload: { service },
+});
+
+export const getQuestionsSuccess = (questions) => ({
+  type: GET_QUESTIONS_SUCCESS,
+  payload: questions,
+});
+
+export const getQuestionsError = (error) => ({
+  type: GET_QUESTIONS_ERROR,
+  payload: error,
+});
+
 export const createQuestion = (question) => ({
   type: CREATE_QUESTION,
   payload: { question },
@@ -124,9 +153,9 @@ export const createQuestionError = (error) => ({
   payload: error,
 });
 
-export const removeQuestion = (questionId) => ({
+export const removeQuestion = (params) => ({
   type: REMOVE_QUESTION,
-  payload: questionId,
+  payload: params,
 });
 
 export const removeQuestionSuccess = () => ({

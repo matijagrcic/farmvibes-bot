@@ -1,30 +1,37 @@
 import React from "react";
-import { getFromStorage } from "helpers/utils";
+import { setToStorage } from "helpers/utils";
 import { Stack } from "@fluentui/react";
 import { Button } from "@fluentui/react-northstar";
+import { useLanguages } from "helpers/utilities";
 
-export const LocaleSwitcher = ({ locale, _onChange, disabled }) => {
+export const LocaleSwitcher = ({ _onChange, locale }) => {
+  const { languages } = useLanguages();
   return (
     <Stack
       horizontal
-      horizontalAlign='end'
-      verticalAlign='start'
+      horizontalAlign="end"
+      verticalAlign="start"
       tokens={{
         childrenGap: 10,
         padding: 0,
       }}
     >
-      {getFromStorage("languages").map((language, i) => {
-        return (
-          <Button
-            flat={true}
-            key={`${language.code}-${i}`}
-            content={language.name}
-            onClick={(event) => _onChange(event, language.code)}
-            primary={language.code === locale}
-          />
-        );
-      })}
+      {languages &&
+        languages.map((language, i) => {
+          return (
+            <Button
+              flat={true}
+              circular
+              key={`${language.code}-${i}`}
+              content={language.code.toUpperCase()}
+              onClick={(event) => {
+                setToStorage("ux_locale", language.code);
+                _onChange(event, language.code);
+              }}
+              primary={language.code === locale}
+            />
+          );
+        })}
     </Stack>
   );
 };

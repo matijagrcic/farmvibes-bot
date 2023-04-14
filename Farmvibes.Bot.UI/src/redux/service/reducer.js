@@ -14,6 +14,8 @@ import {
   UPDATE_SERVICE_ERROR,
   GET_SERVICE_SUCCESS,
   GET_SERVICE_ERROR,
+  RESET_SERVICE_ITEM,
+  UPDATE_SERVICE_ITEM,
   CREATE_QUESTION_VALIDATION_ERROR,
   CREATE_QUESTION_VALIDATION_SUCCESS,
   CREATE_QUESTION_VALIDATION,
@@ -26,6 +28,9 @@ import {
   CREATE_QUESTION_ERROR,
   CREATE_QUESTION_SUCCESS,
   CREATE_QUESTION,
+  GET_QUESTIONS,
+  GET_QUESTIONS_SUCCESS,
+  GET_QUESTIONS_ERROR,
   REMOVE_QUESTION_SUCCESS,
   REMOVE_QUESTION_ERROR,
   REMOVE_QUESTION,
@@ -36,7 +41,9 @@ import {
 
 const initialState = {
   services: [],
+  questions: [],
   service: {},
+  serviceObj: {},
   tree: {},
   loading: true,
   question: {},
@@ -82,6 +89,22 @@ const reducer = (state = initialState, action) => {
         error: action.payload,
         loading: false,
       };
+    case UPDATE_SERVICE_ITEM:
+      const newVal =
+        Object.keys(action.payload).length > 0
+          ? { ...state.serviceObj, ...action.payload }
+          : {};
+      return {
+        ...state,
+        serviceObj: newVal,
+        loading: false,
+      };
+    case RESET_SERVICE_ITEM:
+      return {
+        ...state,
+        serviceObj: {},
+        loading: false,
+      };
     case CREATE_SERVICE:
       return {
         ...state,
@@ -99,7 +122,7 @@ const reducer = (state = initialState, action) => {
       return {
         ...state,
         service: action.payload.service,
-        services: updated,
+        services: updated.sort((a, b) => a.createdAt - b.createdAt),
         loading: false,
       };
     case UPDATE_SERVICE:
@@ -115,14 +138,15 @@ const reducer = (state = initialState, action) => {
         loading: false,
       };
     case UPDATE_SERVICE_SUCCESS:
-      const idx = state.services.findIndex(
-        (item) => state.service.service.id === item.id
-      );
-      state.services.splice(idx, 1, action.payload.service);
+      let afterUpdate = state.services.map((itm) => {
+        return itm.id === action.payload.service.id
+          ? action.payload.service
+          : itm;
+      });
       return {
         ...state,
-        service: action.payload.service,
-        services: state.services,
+        service: null,
+        services: afterUpdate,
         loading: false,
       };
     case REMOVE_SERVICE:
@@ -139,7 +163,7 @@ const reducer = (state = initialState, action) => {
       };
     case REMOVE_SERVICE_SUCCESS:
       const remaining = state.services.filter((item) => {
-        return item.id !== state.service.service.id;
+        return item.id !== state.serviceId.service.id;
       });
       return {
         ...state,
@@ -160,14 +184,30 @@ const reducer = (state = initialState, action) => {
         loading: false,
       };
     case CREATE_QUESTION_SUCCESS:
-      let updatedService = {
-        ...state.service,
-        questions: [...state.service["questions"], action.payload],
-      };
+      let updatedQuestionList = [...state.questions, action.payload];
       return {
         ...state,
         question: {},
-        service: updatedService,
+        questions: updatedQuestionList,
+        loading: false,
+      };
+    case GET_QUESTIONS:
+      return {
+        ...state,
+        service: action.payload,
+        loading: true,
+      };
+    case GET_QUESTIONS_ERROR:
+      return {
+        ...state,
+        error: action.payload,
+        loading: false,
+      };
+    case GET_QUESTIONS_SUCCESS:
+      return {
+        ...state,
+        question: {},
+        questions: action.payload,
         loading: false,
       };
     case REMOVE_QUESTION:
@@ -183,16 +223,13 @@ const reducer = (state = initialState, action) => {
         loading: false,
       };
     case REMOVE_QUESTION_SUCCESS:
-      let newService = {
-        ...state.service,
-        questions: state.service["questions"].filter(
-          (swali) => swali.id !== state.questionId
-        ),
-      };
+      let questionsList = state.questions.filter(
+        (swali) => swali.id !== state.questionId.id
+      );
       return {
         ...state,
         question: {},
-        service: newService,
+        questions: questionsList,
         loading: false,
       };
     case UPDATE_QUESTION:
@@ -208,16 +245,13 @@ const reducer = (state = initialState, action) => {
         loading: false,
       };
     case UPDATE_QUESTION_SUCCESS:
-      let updateSService = {
-        ...state.service,
-        questions: state.service["questions"].map((swali) => {
-          return swali.id === action.payload.id ? action.payload : swali;
-        }),
-      };
+      let updatedQuestions = state.questions.map((swali) => {
+        return swali.id === action.payload.id ? action.payload : swali;
+      });
       return {
         ...state,
         question: {},
-        service: updateSService,
+        questions: updatedQuestions.sort((a, b) => a.position - b.position),
         loading: false,
       };
     case CREATE_QUESTION_VALIDATION:

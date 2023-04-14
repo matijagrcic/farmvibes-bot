@@ -1,6 +1,5 @@
 import React from "react";
 import { Stack, styled, classNamesFunction } from "@fluentui/react";
-import { ThemeToggle } from "global/themes";
 import { UserMenu } from "./UserMenu";
 
 const getStyles = ({ theme }) => {
@@ -18,17 +17,16 @@ const getStyles = ({ theme }) => {
 
 const getClassNames = classNamesFunction();
 
-function TopMenuComponent({ styles, theme }) {
+function TopMenuComponent({ styles, theme, onLocaleChange }) {
   const classNames = getClassNames(styles, { theme });
   return (
     <Stack
       horizontal
-      horizontalAlign='end'
+      horizontalAlign="end"
       className={classNames.root}
       tokens={{ childrenGap: "1em" }}
     >
-      <UserMenu />
-      <ThemeToggle />
+      <UserMenu onLocaleChange={onLocaleChange} />
     </Stack>
   );
 }

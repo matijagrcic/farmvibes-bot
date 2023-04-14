@@ -1,14 +1,19 @@
 import React from "react";
+import { useIntl } from "react-intl";
 import { useLocation } from "react-router-dom";
 
 export function ComingSoon() {
   let location = useLocation();
+  const intl = useIntl();
 
   return (
     <div>
-      <h3>Coming soon.</h3>
+      <h3>{intl.formatMessage({ id: "general.page.comingsoon.title" })}</h3>
       <p>
-        The requested page <code>{location.pathname}</code> is coming soon.
+        {intl.formatMessage(
+          { id: "general.page.comingsoon.message" },
+          { pathname: location.pathname }
+        )}
       </p>
     </div>
   );

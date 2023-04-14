@@ -2,14 +2,15 @@ import { Stack, Text } from "@fluentui/react";
 import * as React from "react";
 import { connect } from "react-redux";
 import { getStyles } from "components/layout/Sidebar/Nav/Nav.styles";
-import { styled } from "@fluentui/react";
+import { styled, Overlay } from "@fluentui/react";
+import { useLocation, useParams } from "react-router-dom";
 import {
-  getService,
   removeService,
   updateService,
   createQuestion,
   removeQuestion,
   updateQuestion,
+  getQuestions,
 } from "redux/service/actions";
 import { LocaleSwitcher } from "components/localeSwitcher";
 import { QuestionContainer } from "components/containers";
@@ -17,34 +18,32 @@ import {
   Button,
   MenuButton,
   AddIcon,
-  MenuItem,
   Dialog,
   Loader,
+  ArrowLeftIcon,
 } from "@fluentui/react-northstar";
 import {
   addTranslationLocale,
+  capitaliseSentense,
   flat,
   getFromStorage,
-  makeListRequest,
+  getPlatformComponents,
   unflatten,
+  validateForm,
 } from "helpers/utils";
 import { DynamicForm } from "components/forms";
-import { addQuestion } from "global/defaultValues";
-import { utcDays } from "d3";
-import validations from "pages/configurations/validations";
+import { useIntl } from "react-intl";
 
 const ServiceDetails = ({
   loading,
-  service,
-  error,
-  match,
+  questions,
   createQuestionAction,
-  updateServiceAction,
-  getServiceAction,
+  getQuestionsAction,
   removeQuestionAction,
   updateQuestionAction,
 }) => {
   const [locale, setLocale] = React.useState(getFromStorage("locale"));
+  const intl = useIntl();
   const [contentLookUp, setContentLookUp] = React.useState(null);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogTitle, setDialogTitle] = React.useState("");
@@ -52,90 +51,150 @@ const ServiceDetails = ({
   const [formValues, setFormValues] = React.useState({});
   const [activeQuestionType, setActiveQuestionType] = React.useState(null);
   const [questionTypes, setQuestionTypes] = React.useState([]);
-  const [questions, setQuestions] = React.useState([]);
+  const [localQuestions, setLocalQuestions] = React.useState([]);
+  const [dataPool, setDataPool] = React.useState([]);
   const [optionsCount, setOptionsCount] = React.useState(0);
+  const [loaderLabel, setLoaderLabel] = React.useState("");
+  const [blockSubmit, setBlockSubmit] = React.useState(false);
 
   const changeMenuLocale = (event, code) => {
     setLocale(code);
   };
 
-  const duplicateQuestion = (index) => {
-    setQuestions((prev) => {
-      return [...prev, prev[index]];
-    });
+  const addQuestion = [
+    {
+      label: intl.formatMessage({ id: "question.form.label" }),
+      name: "question",
+      key: "question",
+      type: "string",
+      required: true,
+      translatable: true,
+      variant: "northstar",
+      hasPlaceholders: true,
+    },
+    {
+      label: intl.formatMessage({ id: "question.form.hint" }),
+      name: "hint",
+      key: "hint",
+      type: "string",
+      required: false,
+      translatable: true,
+      variant: "northstar",
+      hasPlaceholders: true,
+    },
+    {
+      label: intl.formatMessage({ id: "question.form.reference" }),
+      name: "description",
+      key: "description",
+      type: "string",
+      required: true,
+      translatable: false,
+      variant: "northstar",
+      unique: true,
+    },
+  ];
+
+  const location = useLocation();
+  const params = useParams();
+
+  const isValid = (state) => {
+    setBlockSubmit(state);
   };
 
   const swapPositions = (index, newPos) => {
-    let swapped = questions.map((item, idx) => {
+    let swapped = localQuestions.map((item, idx) => {
       return idx - index
         ? idx - newPos
           ? item
-          : questions[index]
-        : questions[newPos];
+          : localQuestions[index]
+        : localQuestions[newPos];
     });
     // setQuestions(swapped);
     //Update the positions in db
-    updateQuestionAction({ id: swapped[index].id, position: index + 1 });
-    updateQuestionAction({ id: swapped[newPos].id, position: newPos + 1 });
+    updateQuestionAction({
+      id: swapped[index].id,
+      position: index + 1,
+      serviceId: params.serviceId,
+    });
+    updateQuestionAction({
+      id: swapped[newPos].id,
+      position: newPos + 1,
+      serviceId: params.serviceId,
+    });
   };
 
   const valuesChanged = (values) => {
-    setFormValues((prev) => {
-      return { ...prev, ...values };
-    });
+    setFormValues(values);
   };
 
   const newQuestion = (qType) => {
     setActiveQuestionType(qType);
     setDialogOpen(true);
-    setDialogTitle("Add question");
-    setDialogConfirmText("Create");
+    setDialogTitle(
+      intl.formatMessage(
+        { id: "general.add" },
+        { subject: intl.formatMessage({ id: "question" }, { count: 1 }) }
+      )
+    );
+    setDialogConfirmText(intl.formatMessage({ id: "general.create" }));
+  };
+
+  const preventSubmit = (status, message = "") => {
+    setBlockSubmit(status);
+    setLoaderLabel(message);
   };
 
   React.useEffect(() => {
-    makeListRequest({
-      url: `question_types`,
-      options: {
-        "groups[]": "translations",
-      },
-    }).then((result) => {
-      //May be a new menu without lables
-      setQuestionTypes(result);
-    });
-  }, [match]);
-
+    getPlatformComponents(
+      "question_types?groups[]=translations",
+      "questionTypes"
+    ).then((result) => setQuestionTypes(result));
+    getQuestionsAction(params.serviceId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   React.useEffect(() => {
-    getServiceAction(match.params.serviceId, "&groups[]=question:read");
-  }, [getServiceAction]);
-
-  React.useEffect(() => {
-    setQuestions(() => {
-      return service.questions !== undefined
-        ? service?.questions.sort(function (a, b) {
-            return a.position - b.position;
-          })
-        : [];
-    });
-  }, [service]);
+    setLocalQuestions(questions);
+    let dp = questions.reduce((a, q) => {
+      if (q.description) {
+        a.push(q.description);
+      }
+      return a;
+    }, []);
+    setDataPool(dp);
+  }, [questions]);
 
   return (
     <Stack tokens={{ childrenGap: 15 }}>
       <Stack
         horizontal
-        horizontalAlign='space-between'
+        horizontalAlign="space-between"
         tokens={{ childrenGap: "l1", padding: "l1" }}
-        verticalAlign='center'
+        verticalAlign="center"
       >
+        <Button
+          icon={<ArrowLeftIcon />}
+          text
+          content={intl.formatMessage({ id: "general.nav.backtolist" })}
+          onClick={() => window.history.back()}
+        />
         <Text block variant={"xLarge"}>
-          {`Service Builder: ${
-            service?.translations ? service?.translations[locale].name : ""
-          } `}
+          {intl.formatMessage(
+            { id: "service.builder" },
+            { service: location.state?.title ? location.state?.title : "" }
+          )}
         </Text>
         <LocaleSwitcher locale={locale} _onChange={changeMenuLocale} />
       </Stack>
       <Stack>
-        {questions &&
-          questions.map((question, idx) => {
+        {loading ? (
+          <Loader
+            size="largest"
+            label={intl.formatMessage({ id: "general.loading" })}
+            labelPosition="below"
+          />
+        ) : (
+          localQuestions &&
+          localQuestions.map((question, idx) => {
             return (
               <QuestionContainer
                 swapAction={swapPositions}
@@ -151,35 +210,50 @@ const ServiceDetails = ({
                   setFormValues(flat(rest));
                   setActiveQuestionType(question.questionType);
                   setDialogOpen(true);
-                  setDialogTitle("Add question");
-                  setDialogConfirmText("Create");
+                  setDialogTitle(
+                    intl.formatMessage(
+                      { id: "general.add" },
+                      {
+                        subject: intl.formatMessage(
+                          { id: "question" },
+                          { count: 1 }
+                        ),
+                      }
+                    )
+                  );
+                  setDialogConfirmText(
+                    intl.formatMessage({ id: "general.create" })
+                  );
                   setOptionsCount(question.questionOptions.length);
                 }}
                 onRemove={() => {
-                  removeQuestionAction(question.id);
-                }}
-                onUpdate={(payload) => {
-                  updateQuestionAction({
+                  removeQuestionAction({
                     id: question.id,
-                    ...payload,
+                    serviceId: params.serviceId,
                   });
                 }}
+                onUpdate={updateQuestionAction}
                 index={idx}
                 key={question.id}
-                isLast={questions[idx + 1] ? false : true}
+                isLast={localQuestions[idx + 1] ? false : true}
                 isPublished={question.isPublished}
                 locale={locale}
                 question={question}
                 loading
-                validations={questionTypes.reduce((prev, curr) => {
-                  if (
-                    curr.id === question.questionType.id &&
-                    curr.validations.length > 0
-                  ) {
-                    prev = [...prev, ...curr.validations];
-                  }
-                  return prev;
-                }, [])}
+                serviceId={params.serviceId}
+                validations={
+                  questionTypes.length > 0
+                    ? questionTypes.reduce((prev, curr) => {
+                        if (
+                          curr.id === question.questionType.id &&
+                          curr.validations.length > 0
+                        ) {
+                          prev = [...prev, ...curr.validations];
+                        }
+                        return prev;
+                      }, [])
+                    : []
+                }
                 editQuestion={() => {
                   //To do: flatten array fields without having to manage this manually
                   setFormValues(
@@ -190,62 +264,42 @@ const ServiceDetails = ({
                       },
                     })
                   );
-                  setDialogTitle("Edit question");
-                  setActiveQuestionType(question.questionType);
-                  setDialogOpen(true);
-                  setDialogConfirmText("Update");
+                  setDialogTitle(
+                    intl.formatMessage(
+                      { id: "general.edit" },
+                      {
+                        subject: intl.formatMessage(
+                          { id: "question" },
+                          { count: 1 }
+                        ),
+                      }
+                    )
+                  );
+                  setActiveQuestionType(
+                    questionTypes.filter(
+                      (qt) => qt.id === question.questionType.id
+                    )[0]
+                  );
+
+                  setDialogConfirmText(
+                    intl.formatMessage(
+                      { id: "general.update" },
+                      {
+                        subject: intl.formatMessage(
+                          { id: "question" },
+                          { count: 1 }
+                        ),
+                      }
+                    )
+                  );
                   setOptionsCount(question.questionOptions.length);
+                  setDialogOpen(true);
                 }}
               />
             );
-          })}
+          })
+        )}
         <Dialog
-          cancelButton='Cancel'
-          confirmButton={dialogConfirmText}
-          onConfirm={() => {
-            //Let's add locale key as required by api
-            let data = unflatten(addTranslationLocale(formValues));
-            if (data.hasOwnProperty("questionOptions"))
-              data["questionOptions"] = data?.questionOptions.value;
-
-            if (dialogConfirmText.toLocaleLowerCase().includes("create")) {
-              if (!data.hasOwnProperty("attributes"))
-                data["attributes"] = activeQuestionType.attributes.map(
-                  (attribute) => {
-                    return {
-                      id: attribute.id,
-                      value: attribute.defaultValue,
-                      name: attribute.name,
-                    };
-                  }
-                );
-
-              if (!data.hasOwnProperty("service"))
-                data["service"] = `/api/services/${service.id}`;
-
-              if (
-                !data.hasOwnProperty("contentLookUp") &&
-                contentLookUp !== null
-              )
-                data["contentLookUp"] = contentLookUp;
-
-              createQuestionAction({
-                ...data,
-                ...{
-                  questionType: `/api/question_types/${activeQuestionType.id}`,
-                  position: service.questions.length,
-                },
-              });
-            } else {
-              updateQuestionAction({
-                ...data,
-                questionType: `/api/question_types/${data.questionType.id}`,
-              });
-            }
-            setDialogOpen(false);
-            setFormValues({});
-            setContentLookUp(null);
-          }}
           header={dialogTitle}
           temporary={loading.toString()}
           disabled={loading}
@@ -257,58 +311,156 @@ const ServiceDetails = ({
             setContentLookUp(null);
           }}
           content={
-            <DynamicForm
-              inputValues={formValues}
-              valuesChanged={valuesChanged}
-              inputs={
-                activeQuestionType && activeQuestionType.hasOptions
-                  ? [
-                      ...addQuestion,
-                      {
-                        type: "array",
-                        name: "questionOptions",
-                        key: "questionOptions",
-                        translatable: true,
-                        required: true,
-                        addText: "Add options",
-                        count: optionsCount,
-                        fields: [
-                          {
-                            name: "value",
-                            key: "value",
-                            required: true,
-                            length: 300,
-                            type: "string",
-                            label: "Option",
-                            translatable: true,
-                            multiple: true,
-                            variant: "northstar",
-                          },
-                        ],
-                      },
-                    ]
-                  : addQuestion
-              }
-            />
+            <form
+              noValidate
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+              style={{ width: "100%" }}
+            >
+              {loaderLabel !== "" && (
+                <Overlay className={"loader"}>
+                  <Loader label={loaderLabel} size="largest" />
+                </Overlay>
+              )}
+              <DynamicForm
+                inputValues={formValues}
+                valuesChanged={valuesChanged}
+                preventSubmit={preventSubmit}
+                inputs={
+                  activeQuestionType && activeQuestionType.hasOptions
+                    ? [
+                        ...addQuestion,
+                        {
+                          type: "array",
+                          name: "questionOptions",
+                          key: "questionOptions",
+                          translatable: true,
+                          required: true,
+                          addText: intl.formatMessage(
+                            { id: "general.add" },
+                            {
+                              subject: intl.formatMessage(
+                                { id: "general.options" },
+                                { count: 2 }
+                              ),
+                            }
+                          ),
+                          count: optionsCount,
+                          fields: [
+                            {
+                              name: "value",
+                              key: "value",
+                              required: true,
+                              length: 300,
+                              type: "string",
+                              label: capitaliseSentense(
+                                intl.formatMessage(
+                                  { id: "general.add" },
+                                  {
+                                    subject: intl.formatMessage(
+                                      { id: "general.options" },
+                                      { count: 1 }
+                                    ),
+                                  }
+                                )
+                              ),
+                              translatable: true,
+                              multiple: true,
+                              variant: "northstar",
+                            },
+                          ],
+                        },
+                      ]
+                    : addQuestion
+                }
+                reverse={false}
+                dataPool={dataPool}
+                isValid={isValid}
+                disableSubmit={blockSubmit}
+                onSubmit={(e) => {
+                  let hasErrors = validateForm(
+                    e.target.closest("form").elements
+                  );
+                  if (!hasErrors) {
+                    //Let's add locale key as required by api
+                    let data = unflatten(addTranslationLocale(formValues));
+                    if (data.hasOwnProperty("questionOptions"))
+                      data["questionOptions"] = data?.questionOptions.value;
+
+                    if (
+                      dialogConfirmText.toLocaleLowerCase().includes("create")
+                    ) {
+                      if (!data.hasOwnProperty("attributes"))
+                        data["attributes"] = activeQuestionType.attributes.map(
+                          (attribute) => {
+                            return {
+                              id: attribute.id,
+                              value: attribute.defaultValue,
+                              name: attribute.name,
+                            };
+                          }
+                        );
+
+                      if (!data.hasOwnProperty("service"))
+                        data["service"] = `/api/services/${params.serviceId}`;
+
+                      if (
+                        !data.hasOwnProperty("contentLookUp") &&
+                        contentLookUp !== null
+                      )
+                        data["contentLookUp"] = contentLookUp;
+
+                      createQuestionAction({
+                        ...data,
+                        ...{
+                          questionType: `/api/question_types/${activeQuestionType.id}`,
+                          position: localQuestions.length,
+                        },
+                      });
+                    } else {
+                      updateQuestionAction({
+                        ...data,
+                        questionType: `/api/question_types/${data.questionType.id}`,
+                        serviceId: params.serviceId,
+                      });
+                    }
+                    setDialogOpen(false);
+                    setFormValues({});
+                    setContentLookUp(null);
+                  } else {
+                    preventSubmit(true, "");
+                  }
+                }}
+              />
+            </form>
           }
         />
-        {loading && (
-          <Loader size='largest' label='loading' labelPosition='below' />
-        )}
+
         <Stack.Item style={{ margin: `40px auto 30px auto`, width: `680px` }}>
           <MenuButton
             trigger={
               <Button
                 icon={<AddIcon />}
-                title='Open Menu'
-                content='Add question'
+                title={intl.formatMessage({
+                  id: "general.navigation.dropdown",
+                })}
+                content={intl.formatMessage(
+                  { id: "general.add" },
+                  {
+                    subject: intl.formatMessage(
+                      { id: "question" },
+                      { count: 1 }
+                    ),
+                  }
+                )}
               />
             }
             menu={questionTypes.map((type) => {
-              if (!type.icon.includes("Search")) {
+              if (!type.icon.includes("SIcon")) {
                 return {
                   key: type.id,
-                  content: type.translations[locale].name,
+                  content: type.translations[locale]?.name,
                   onClick: () => {
                     newQuestion(type);
                   },
@@ -316,31 +468,12 @@ const ServiceDetails = ({
               } else {
                 return {
                   key: type.id,
-                  content: type.translations[locale].name,
+                  content: type.translations[locale]?.name,
                   menu: [
                     {
-                      content: "Administrative units",
-                      menu: getFromStorage("administrativeUnits").map(
-                        (unit) => {
-                          return {
-                            key: unit.name.toLocaleLowerCase(),
-                            content: unit.name,
-                            tooltip: unit.description,
-                            onClick: () => {
-                              newQuestion(type);
-                              setContentLookUp({
-                                key: "name",
-                                entity: "locations",
-                                value: "id",
-                                filters: `type=/api/administrative/${unit.id}`,
-                              });
-                            },
-                          };
-                        }
+                      content: capitaliseSentense(
+                        intl.formatMessage({ id: "language" }, { count: 2 })
                       ),
-                    },
-                    {
-                      content: "Languages",
                       key: "languages",
                       onClick: () => {
                         newQuestion(type);
@@ -352,7 +485,9 @@ const ServiceDetails = ({
                       },
                     },
                     {
-                      content: "Channels",
+                      content: capitaliseSentense(
+                        intl.formatMessage({ id: "channels" }, { count: 2 })
+                      ),
                       key: "channels",
                       onClick: () => {
                         newQuestion(type);
@@ -375,14 +510,14 @@ const ServiceDetails = ({
 };
 
 const mapStateToProps = ({ serviceReducer }) => {
-  const { loading, services, service, error } = serviceReducer;
-  return { loading, error, services, service };
+  const { loading, questions, error } = serviceReducer;
+  return { loading, error, questions };
 };
 
 export default connect(mapStateToProps, {
-  getServiceAction: getService,
   removeServiceAction: removeService,
   updateServiceAction: updateService,
+  getQuestionsAction: getQuestions,
   createQuestionAction: createQuestion,
   removeQuestionAction: removeQuestion,
   updateQuestionAction: updateQuestion,

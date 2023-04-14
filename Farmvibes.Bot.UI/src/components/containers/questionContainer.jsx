@@ -14,18 +14,21 @@ import {
   Dialog,
   DownloadIcon,
   Divider,
-  MenuButton,
-  AddIcon,
   Segment,
-  SplitButton,
 } from "@fluentui/react-northstar";
 import { CheckboxField } from "components/forms";
-import { ValidationContainer } from "components/containers";
 import * as React from "react";
 import { ValidationDialog } from "./validationDialog";
-import { getFromStorage } from "../../helpers/utils";
+import { updateQuestion } from "redux/actions";
+import {
+  capitaliseSentense,
+  encodeGroupURI,
+  getPlatformComponents,
+  makeListRequest,
+} from "../../helpers/utils";
 import { FontSizes, FontWeights } from "@fluentui/theme";
-import { ConstraintsDialog } from "./constraintsDialog";
+import ConstraintsContainer from "./constraintContainer";
+import { useIntl } from "react-intl";
 
 export function QuestionContainer({
   index,
@@ -37,16 +40,16 @@ export function QuestionContainer({
   locale,
   editQuestion,
   question,
-  validations,
   loading,
+  serviceId,
 }) {
   const [validationDialogToggle, setValidationDialogToggle] =
     React.useState(false);
-  const [constraintsDialogToggle, setConstraintsDialogToggle] =
-    React.useState(false);
   const [validationAttr, setValidationAtt] = React.useState({});
   const [validationValues, setValidationValues] = React.useState({});
+  const [setQuestionConstraints] = React.useState([]);
   const [validationAction, setValidationAction] = React.useState(null);
+  const intl = useIntl();
   const toggleValidationDialog = (attr, customValues, action) => {
     if (Object.keys(attr).length > 0) {
       setValidationAtt(attr);
@@ -58,108 +61,52 @@ export function QuestionContainer({
     }
     setValidationAction(action);
   };
-  const toggleConstraintsDialog = () => {
-    setConstraintsDialogToggle(!constraintsDialogToggle);
-  };
 
   const panels = [
     {
       title: {
-        content: "Response validation",
-        style: { fontSize: FontSizes.size14, fontWeight: FontWeights.semibold },
+        content: capitaliseSentense(
+          intl.formatMessage({ id: "constraints" }, { count: 2 })
+        ),
+        disabled: question.isSystem,
+        style: question.isSystem
+          ? { display: "none" }
+          : { fontSize: FontSizes.size14, fontWeight: FontWeights.semibold },
+        key: `configs-accordion-${question.id}-constraints-title`,
+        onClick: () => {
+          makeListRequest({
+            url: `questions/${question.id}/constraints?${encodeGroupURI(
+              "groups",
+              ["questionConstraint:read", "translations"]
+            )}&paginate=false`,
+          }).then((result) => {
+            setQuestionConstraints(result);
+          });
+        },
       },
-      key: `validation-panel-${question.id}`,
+      key: `constraints-panel-${question.id}-constraints-content`,
       content: (
         <>
           <Segment
             content={
-              <>
-                <Text>
-                  Validations allow you to define criteria of responses that
-                  would be acceptable from the user. This will make sure that
-                  the data provided by the user will meet your expectations.
-                </Text>
-                <ValidationContainer
-                  locale={locale}
-                  validations={question.questionValidations}
-                  dialogOpen={validationDialogToggle}
-                  action='Add'
-                  editAttr={toggleValidationDialog}
-                />
-                <br />
-                {validations.length > 0 && (
-                  <Flex.Item gap='gap.small'>
-                    <SplitButton
-                      flat
-                      primary
-                      small
-                      button={{
-                        content: "Add validation",
-                        "aria-label": "Add validation",
-                        icon: <AddIcon outline />,
-                      }}
-                      toggleButton={{
-                        "aria-label": "validation options",
-                      }}
-                      menu={validations.map((validation) => {
-                        if (validation === undefined) return;
-
-                        if (validation.length < 1) return;
-                        return {
-                          key: `${question.id}-validations-${validation.id}`,
-                          id: validation.description,
-                          content: validation.description,
-                          menu: validation.validationAttributes.map(
-                            (attribute) => {
-                              return {
-                                key: `${question.id}-validations-${validation.id}-${attribute.id}`,
-                                content: attribute.description,
-                                onClick: () => {
-                                  toggleValidationDialog(attribute, {}, "Add");
-                                },
-                              };
-                            }
-                          ),
-                          on: "hover",
-                        };
-                      })}
-                    />
-                  </Flex.Item>
-                )}
-              </>
+              <ConstraintsContainer
+                object={{ id: question.id, serviceId }}
+                iri={{
+                  question: `/api/services/${serviceId}/questions/${question.id}`,
+                }}
+                paths={{
+                  list: `questions/${question.id}/constraints`,
+                  remove: `questions/${question.id}/constraints/{id}`,
+                  new: `question_constraints`,
+                  update: `questions/${question.id}/constraints/{id}`,
+                }}
+                action={updateQuestion}
+                loading={loading}
+                locale={locale}
+                leading={intl.formatMessage({ id: "constraints.description" })}
+              />
             }
-            color='brand'
-          />
-        </>
-      ),
-    },
-    {
-      title: {
-        content: "Constraints",
-        style: { fontSize: FontSizes.size14, fontWeight: FontWeights.semibold },
-      },
-      key: `constraints-panel-${question.id}`,
-      content: (
-        <>
-          <Segment
-            content={
-              <>
-                <Text>
-                  Constraints allow you to specify availability of this question
-                  to users who meet your desired criteria.
-                </Text>
-                <br />
-                <br />
-                <Button
-                  text
-                  icon={<AddIcon />}
-                  primary
-                  content='Add constraint'
-                  onClick={() => toggleConstraintsDialog()}
-                />
-              </>
-            }
-            color='brand'
+            color="brand"
           />
         </>
       ),
@@ -170,12 +117,12 @@ export function QuestionContainer({
     <>
       <Card
         accessibility={cardFocusableBehavior}
-        aria-roledescription='user card'
+        aria-roledescription={intl.formatMessage({ id: "question.container" })}
         elevated
         fluid
         expandable
         ghost
-        size='largest'
+        size="largest"
         style={{ maxWidth: "700px", margin: "0 auto 30px auto" }}
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -183,33 +130,57 @@ export function QuestionContainer({
         transition={{ duration: 0.1 }}
       >
         <Card.Header fitted>
-          <Flex space='between'>
-            <Flex gap='gap.medium' vAlign='center'>
+          <Flex space="between">
+            <Flex gap="gap.medium" vAlign="center">
               <Text
                 content={`${index + 1}. ${
-                  question.translations[locale].question
+                  question.translations[locale]?.question
                 }`}
-                weight='semibold'
-                size='medium'
+                weight="semibold"
+                size="medium"
               />
             </Flex>
-            <Flex gap='gap.medium' vAlign='center'>
+            <Flex gap="gap.medium" vAlign="center">
               <Button
                 icon={<EditIcon />}
                 iconOnly
                 text
-                title='Edit question'
+                title={intl.formatMessage(
+                  {
+                    id: "general.edit",
+                  },
+                  { subject: "question" }
+                )}
                 onClick={editQuestion}
               />
               <Dialog
-                cancelButton='Cancel'
-                confirmButton='Publish'
-                size='small'
+                cancelButton={intl.formatMessage({ id: "general.cancel" })}
+                confirmButton={intl.formatMessage(
+                  { id: "general.publish" },
+                  { subject: "" }
+                )}
+                size="small"
                 onConfirm={() =>
                   onUpdate({ isPublished: !question.isPublished })
                 }
-                header='Publish question'
-                content='Are you sure you want to publish this question?'
+                header={intl.formatMessage(
+                  { id: "general.publish" },
+                  {
+                    subject: intl.formatMessage(
+                      { id: "question" },
+                      { count: 1 }
+                    ),
+                  }
+                )}
+                content={intl.formatMessage(
+                  { id: "general.publish.confirm" },
+                  {
+                    subject: intl.formatMessage(
+                      { id: "question" },
+                      { count: 1 }
+                    ),
+                  }
+                )}
                 trigger={
                   <Button
                     icon={
@@ -221,24 +192,51 @@ export function QuestionContainer({
                     }
                     iconOnly
                     text
-                    title={question.isPublished ? "Unpublish" : "Publish"}
+                    title={
+                      question.isPublished
+                        ? intl.formatMessage({ id: "general.unpublish" })
+                        : intl.formatMessage(
+                            { id: "general.publish" },
+                            {
+                              subject: intl.formatMessage(
+                                { id: "question" },
+                                { count: 1 }
+                              ),
+                            }
+                          )
+                    }
+                    disabled={question.isSystem}
                   />
                 }
               />
 
               <Dialog
-                cancelButton='Cancel'
-                confirmButton='Remove'
+                cancelButton={intl.formatMessage({ id: "general.cancel" })}
+                confirmButton={intl.formatMessage(
+                  { id: "general.remove" },
+                  { subject: "" }
+                )}
                 onConfirm={onRemove}
-                header='Remove question'
-                content='Are you sure you want to remove this question?'
-                size='small'
+                header={intl.formatMessage(
+                  { id: "general.remove" },
+                  {
+                    subject: intl.formatMessage(
+                      { id: "question" },
+                      { count: 1 }
+                    ),
+                  }
+                )}
+                content={intl.formatMessage(
+                  { id: "general.publish.confirm" },
+                  { subject: "question" }
+                )}
+                size="small"
                 trigger={
                   <Button
                     icon={<TrashCanIcon />}
                     iconOnly
                     text
-                    title='Remove'
+                    title={intl.formatMessage({ id: "general.remove" })}
                     disabled={question.isSystem}
                   />
                 }
@@ -247,22 +245,23 @@ export function QuestionContainer({
                 icon={<ScreenshareIcon />}
                 iconOnly
                 text
-                title='Duplicate'
+                title={intl.formatMessage({ id: "general.duplicate" })}
                 onClick={(e) => duplicateAction(index)}
+                disabled={question.isSystem}
               />
               <Button
                 icon={<ArrowUpIcon />}
                 iconOnly
                 text
-                title='Move up'
+                title={intl.formatMessage({ id: "general.moveup" })}
                 onClick={(e) => swapAction(index, index - 1)}
-                disabled={index === 0 || question.isSystem ? true : false}
+                disabled={index === 0 || question.isSystem}
               />
               <Button
                 icon={<ArrowDownIcon />}
                 iconOnly
                 text
-                title='Move down'
+                title={intl.formatMessage({ id: "general.movedown" })}
                 onClick={() => swapAction(index, index + 1)}
                 disabled={isLast || question.isSystem}
               />
@@ -270,55 +269,82 @@ export function QuestionContainer({
           </Flex>
         </Card.Header>
         <Card.Body>
-          <Flex column gap='gap.small'>
+          <Flex column gap="gap.small">
             <CheckboxField
               options={question.questionOptions.map((option) => {
                 return {
-                  label: option.translations[locale].value,
+                  label: option.translations.hasOwnProperty(locale)
+                    ? option.translations[locale].value
+                    : option.translations["en"].value,
                   key: option.id,
                 };
               })}
               handleChange={() => void 0}
-              variant='northstar'
+              variant="northstar"
               toggle={false}
               checkBoxstyle={{ lineHeight: "normal", marginTop: "10px" }}
               horizontal={false}
             />
           </Flex>
-          <Divider style={{ margin: "3rem 0 0" }} content='Question configs' />
-          <Accordion panels={panels} defaultActiveIndex={[0]} exclusive />
+          <Divider
+            style={{ margin: "3rem 0 0" }}
+            content={intl.formatMessage({ id: "question.configs" })}
+          />
+
+          <Accordion
+            panels={panels}
+            defaultActiveIndex={[0]}
+            exclusive
+            key={`configs-accordion-${question.id}`}
+          />
         </Card.Body>
         <Card.Footer fitted>
           <Divider style={{ margin: "10px 0" }} />
-          <Flex space='between' hAlign='center' vAlign='center'>
+          <Flex space="between" hAlign="center" vAlign="center">
             <CheckboxField
-              options={getFromStorage("questionTypes")
-                .filter((type) => type.id === question.questionType.id)[0]
-                .attributes.map((attribute) => {
-                  return {
-                    label: attribute.translations[locale].name,
-                    key: `question-${question.id}-${attribute.id}`,
-                    checked:
-                      question.attributes.find(
-                        (attr) => attr.id === attribute.id
-                      ) !== undefined
-                        ? question.attributes.find(
-                            (attr) => attr.id === attribute.id
-                          ).value
-                        : false,
-                  };
-                })}
-              handleChange={(name, values) => {
+              options={getPlatformComponents(
+                "question_types?groups[]=translations",
+                "questionTypes"
+              ).then((result) => {
+                return result
+                  .filter((type) => type.id === question.questionType.id)[0]
+                  .attributes.map((attribute) => {
+                    let label = attribute.translations.hasOwnProperty(locale)
+                      ? attribute.translations[locale].name
+                      : attribute.translations["en"].name;
+                    return {
+                      label,
+                      key: `question-${question.id}-${attribute.id}`,
+                      checked:
+                        question.attributes.find(
+                          (attr) => attr.id === attribute.id
+                        ) !== undefined
+                          ? question.attributes.find(
+                              (attr) => attr.id === attribute.id
+                            ).value
+                          : false,
+                    };
+                  });
+              })}
+              handleChange={(_name, value) => {
                 const payload = question.attributes.map((attr) => {
-                  return values.find((value) => attr.id === value)
-                    ? { ...attr, ...{ value: true } }
-                    : { ...attr, ...{ value: false } };
+                  if (
+                    attr.id ===
+                    parseInt(
+                      value.key.substring(value.key.lastIndexOf("-") + 1)
+                    )
+                  )
+                    return { ...attr, ...{ value: value.checked } };
+
+                  return attr;
                 });
                 onUpdate({
                   attributes: payload,
+                  id: question.id,
+                  serviceId: serviceId,
                 });
               }}
-              variant='northstar'
+              variant="northstar"
             />
           </Flex>
         </Card.Footer>
@@ -333,16 +359,7 @@ export function QuestionContainer({
           loading={loading}
           customValues={validationValues}
           action={validationAction}
-        />
-      )}
-
-      {constraintsDialogToggle && (
-        <ConstraintsDialog
-          dialogOpen={constraintsDialogToggle}
-          locale={locale}
-          question={question}
-          loading={loading}
-          toggleConstraintsDialog={toggleConstraintsDialog}
+          serviceId={serviceId}
         />
       )}
     </>

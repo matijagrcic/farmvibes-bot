@@ -11,7 +11,7 @@ export const ArrayField = ({
   fieldsFunction,
   fields,
   addIcon,
-  addText = "New item",
+  addText,
   locale,
   value,
 }) => {

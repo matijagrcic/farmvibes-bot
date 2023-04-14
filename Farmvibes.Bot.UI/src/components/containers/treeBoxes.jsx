@@ -1,49 +1,74 @@
 import * as d3 from "d3";
 import * as React from "react";
 import { ContextMenu, ModalContainer, DialogBox } from "components/containers";
+import { connect } from "react-redux";
 import { DynamicForm } from "components/forms";
+import { Overlay, styled } from "@fluentui/react";
 import {
-  menuColours,
-  createContentFields,
-  createNode,
-} from "global/defaultValues";
+  createMenuNode,
+  removeMenuNode,
+  updateMenuNode,
+} from "../../redux/actions";
+import { getStyles } from "components/layout/Sidebar/Nav/Nav.styles";
+import { menuColours } from "global/defaultValues";
 import {
-  makeListRequest,
-  generateUUID,
   flat,
+  makeListRequest,
   prepareContentMenu,
+  updateSideBarheight,
+  unflatten,
+  getFromStorage,
+  getFromIri,
+  validateForm,
+  capitaliseSentense,
 } from "helpers/utils";
-import { post, patch, remove } from "helpers/requests";
-import { nodeTypes } from "global/defaultValues";
-import { SelectableOptionMenuItemType } from "@fluentui/react";
+import { Loader } from "@fluentui/react-northstar";
+import ConstraintContainer from "./constraintContainer";
+import { useIntl } from "react-intl";
+import { useNodeTypes } from "helpers/utilities/nodeTypes";
 
 let timerId = null;
 let submitAction = null;
 let currentNode = null;
 let root = null;
 
-export const TreeBoxes = ({
-  data,
+const TreeBoxes = ({
+  menuTree,
   theme,
-  menuId,
   createNodeAction,
-  node,
+  removeMenuNodeAction,
+  updateMenuNodeAction,
   loading,
   locale,
   toggleContentPanel,
 }) => {
   let nodeRefs = [];
   let colours = menuColours(theme);
+  const intl = useIntl();
+  const { nodeTypes } = useNodeTypes();
   const [showMenu, setShowMenu] = React.useState(false);
   const [nodeRef, setNodeRef] = React.useState(null);
   const [modalHidden, setModalHidden] = React.useState(false);
   const [modalTitle, setModalTitle] = React.useState("");
   const [modalContent, setModalContent] = React.useState([]);
+  const [loaderLabel, setLoaderLabel] = React.useState(
+    intl.formatMessage({ id: "general.loading" }, { subject: "" })
+  );
+  const [blockSubmit, setBlockSubmit] = React.useState(false);
+  const [treeData, setTreeData] = React.useState({});
+  const [nodeCount, setNodeCount] = React.useState(0);
   const [activeNodeType, setActiveNodeType] = React.useState(null);
   const [activeNode, setActiveNode] = React.useState(null);
   const [dialogHidden, setDialogHidden] = React.useState(true);
   const [dialogTitle, setDialogTitle] = React.useState("");
   const [dialogContent, setDialogContent] = React.useState([]);
+  const [dialogCancel, setDialogCancel] = React.useState(
+    intl.formatMessage({ id: "general.cancel" })
+  );
+  const [dialogConfirm, setDialogConfirm] = React.useState(
+    intl.formatMessage({ id: "general.confirm" })
+  );
+
   const [dialogProceedFunction, setDialogProceedFunction] =
     React.useState(null);
   const [dialogProceedFunctionParams, setDialogProceedFunctionParams] =
@@ -51,57 +76,102 @@ export const TreeBoxes = ({
   const [currentAction, setCurrentAction] = React.useState(null);
   const [formValues, setFormValues] = React.useState({});
   const [contentMenuActions, setContentMenuActions] = React.useState([]);
-  let contentArray = [];
-  let servicesArray = [];
+
+  const createNode = [
+    {
+      name: "label",
+      key: "menu label",
+      required: true,
+      length: 50,
+      type: "string",
+      label: intl.formatMessage({ id: "menu.label" }),
+      translatable: true,
+      variant: "northstar",
+    },
+  ];
+
   const persistNode = (fields, callback) => {
-    let nodeResult = createNodeAction(fields);
+    createNodeAction(fields);
     callback();
-    return nodeResult;
   };
-
-  const patchNode = (fields) => {
-    patch(`menu_nodes/${currentNode.id}`, fields).then((response) =>
-      console.log(response)
-    );
-    // setTimeout(function(){ window.location.reload(false); }, 3000);
-  };
-
-  const removeNode = (id) => {
-    remove(`menu_nodes/${id}`).then((response) => console.log(response));
-    delete_node(activeNode);
-    setTimeout(function () {
-      window.location.reload(false);
-    }, 3000);
-  };
+  const createContentFields = [
+    {
+      name: "label",
+      key: "menu label",
+      required: true,
+      length: 300,
+      type: "string",
+      label: intl.formatMessage({ id: "menu.label" }),
+      translatable: true,
+    },
+    {
+      name: "description",
+      key: "description",
+      required: false,
+      length: 300,
+      type: "longtext",
+      label: intl.formatMessage({ id: "menu.description" }),
+      translatable: true,
+    },
+    {
+      fields: [
+        {
+          name: "text",
+          key: "text",
+          required: true,
+          length: 300,
+          type: "longtext",
+          label: capitaliseSentense(intl.formatMessage({ id: "general.text" })),
+          translatable: true,
+          multiple: true,
+        },
+      ],
+      name: "content",
+      label: intl.formatMessage({ id: "general.messages" }),
+      key: "content",
+      type: "array",
+      translatable: true,
+    },
+  ];
 
   const UpdateFormValue = (val) => {
-    setFormValues(val);
-  };
-
-  const fieldValues = (values) => {
-    Object.keys(values[0]).forEach((value) => {
-      if (!document.getElementsByName(value))
-        this.form.elements[value] = values[value];
+    setFormValues((prev) => {
+      return { ...prev, ...val };
     });
   };
 
   const showNodeModal = (nodeType, action) => {
     let modalTitle = null;
     let content = null;
+    setShowMenu(false);
     setCurrentAction(action);
     switch (action) {
       case "create":
         switch (nodeType) {
           case "content":
             content = createContentFields;
-            modalTitle = "Add content";
+            modalTitle = intl.formatMessage(
+              { id: "general.add" },
+              { subject: intl.formatMessage({ id: "content" }, { count: 1 }) }
+            );
             break;
           case "service":
-            modalTitle = "Add service";
+            modalTitle = intl.formatMessage(
+              { id: "general.add" },
+              { subject: intl.formatMessage({ id: "service" }, { count: 1 }) }
+            );
             break;
           default:
             content = createNode;
-            modalTitle = "Add branch";
+            modalTitle = intl.formatMessage(
+              { id: "general.add" },
+              {
+                subject: intl.formatMessage(
+                  { id: "menu.branch" },
+                  { count: 1 }
+                ),
+              }
+            );
             break;
         }
         break;
@@ -111,14 +181,25 @@ export const TreeBoxes = ({
         let temp = flat(currentNode.translations);
 
         //Append the translations to name for form to display
-        setFormValues(
-          Object.keys(temp).reduce((res, key) => {
+        setFormValues({
+          ...Object.keys(temp).reduce((res, key) => {
             Object.assign(res, { [`translations.${key}`]: temp[key] });
             return res;
-          }, {})
-        );
+          }, {}),
+          node: currentNode.id,
+        });
 
-        modalTitle = `Edit ${nodeType} label`;
+        modalTitle = intl.formatMessage(
+          { id: "general.edit" },
+          {
+            subject: `${intl.formatMessage(
+              {
+                id: `menu.type.${nodeType}`,
+              },
+              { count: 1 }
+            )} label`,
+          }
+        );
         content = createNode;
         break;
 
@@ -128,42 +209,114 @@ export const TreeBoxes = ({
             content = [
               ...createNode,
               {
-                options: contentArray,
-                placeholder: "Start typing content description",
+                options: [],
+                placeholder: intl.formatMessage(
+                  { id: "general.list.search.autocomplete" },
+                  {
+                    subject: intl.formatMessage(
+                      {
+                        id: "menu.type.content",
+                      },
+                      { count: 1 }
+                    ),
+                  }
+                ),
                 variant: "northstar",
                 translatable: false,
                 name: "content",
-                label: "Select content",
+                label: intl.formatMessage(
+                  { id: "general.form.select" },
+                  {
+                    subject: intl.formatMessage(
+                      { id: "content" },
+                      { count: 1 }
+                    ),
+                  }
+                ),
                 key: "existingContent",
                 type: "combo",
               },
             ];
-            // setModalContent(content);
-            modalTitle = "Assign content to node";
+            modalTitle = intl.formatMessage(
+              { id: "menu.node.assign" },
+              {
+                subject: intl.formatMessage(
+                  { id: "menu.type.content" },
+                  { count: 1 }
+                ),
+              }
+            );
             break;
           default:
             content = [
               ...createNode,
               {
-                options: servicesArray,
-                placeholder: "Start typing service description",
+                options: [],
+                placeholder: intl.formatMessage(
+                  { id: "general.list.search.autocomplete" },
+                  {
+                    subject: intl.formatMessage(
+                      {
+                        id: "menu.type.service",
+                      },
+                      { count: 1 }
+                    ),
+                  }
+                ),
                 variant: "northstar",
                 translatable: false,
                 name: "service",
-                label: "Select service",
-                key: "existingContent",
+                label: intl.formatMessage(
+                  { id: "general.form.select" },
+                  {
+                    subject: intl.formatMessage(
+                      { id: "content" },
+                      { count: 1 }
+                    ),
+                  }
+                ),
+                key: "existingService",
                 type: "combo",
               },
             ];
-            // setModalContent(content);
-            modalTitle = "Assign service to node";
+            modalTitle = intl.formatMessage(
+              { id: "menu.node.assign" },
+              {
+                subject: intl.formatMessage(
+                  { id: "menu.type.service" },
+                  { count: 1 }
+                ),
+              }
+            );
             break;
         }
         break;
 
+      case "constraints":
+        modalTitle = intl.formatMessage(
+          { id: "general.manage" },
+          { subject: "constraints" }
+        );
+        content = (
+          <ConstraintContainer
+            object={{ id: currentNode.id }}
+            iri={{
+              menuNode: `/api/menu_nodes/${currentNode.id}`,
+            }}
+            paths={{
+              list: `menu_nodes/${currentNode.id}/constraints`,
+              remove: `menu_nodes/${currentNode.id}/constraints/{id}`,
+              new: `menu_node_constraints`,
+              update: `menu_nodes/${currentNode.id}/{id}`,
+            }}
+            action={updateMenuNodeAction}
+            loading={loading}
+            locale={locale}
+          />
+        );
+        break;
       default:
         console.log(action);
-        console.log(nodeType);
         break;
     }
 
@@ -176,93 +329,145 @@ export const TreeBoxes = ({
     setActiveNodeType(nodeType);
   };
 
+  const onSearch = async (vals) => {
+    if (vals.searchQuery.length < 3) return;
+    switch (vals.name) {
+      case "content":
+        return await makeListRequest({
+          url: `contents?groups[]=uxMenus:read&groups[]=translations&translations.label=${vals.searchQuery}`,
+        }).then((result) => {
+          return result.reduce((arr, itm) => {
+            if (itm !== undefined)
+              arr.push({
+                key: `/api/contents/${itm.id}`,
+                header: itm["translations"][locale].label,
+              });
+
+            return arr;
+          }, []);
+        });
+
+      default:
+        return await makeListRequest({
+          url: `services?groups[]=uxServiceRequest:read&groups[]=translations&translations.name=${vals.searchQuery}`,
+        }).then((result) => {
+          return result.reduce((serv_array, serv) => {
+            if (serv !== undefined) {
+              serv_array.push({
+                key: `/api/services/${serv.id}`,
+                content: getFromIri("serviceTypes", serv["type"])?.translations[
+                  locale
+                ].name,
+                header: serv["translations"][locale].name,
+              });
+            }
+            return serv_array;
+          }, []);
+        });
+    }
+  };
+
   const showDialog = (nodeType, action) => {
     setCurrentAction(action);
     switch (action) {
       case "delete":
-        setDialogContent("Are you sure you want to remove this item?");
-        setDialogTitle("Delete " + nodeType);
-        setDialogProceedFunction(() => removeNode);
+        setDialogContent(intl.formatMessage({ id: "general.remove.confirm" }));
+        setDialogTitle(
+          intl.formatMessage(
+            { id: "general.delete" },
+            {
+              subject: `${intl.formatMessage(
+                {
+                  id: `menu.type.${nodeType}`,
+                },
+                { count: 1 }
+              )}`,
+            }
+          )
+        );
+        setDialogProceedFunction(() => removeMenuNodeAction);
         setDialogProceedFunctionParams(currentNode.id);
+        break;
+      case "constraints":
+        setDialogTitle(
+          intl.formatMessage(
+            { id: "general.manage" },
+            { subject: "constraints" }
+          )
+        );
+        setDialogCancel(intl.formatMessage({ id: "general.close" }));
+        setDialogConfirm({ style: { display: "none" } });
+        setDialogContent(
+          <ConstraintContainer
+            object={{ id: currentNode.id }}
+            iri={{
+              node: `/api/menu_nodes/${currentNode.id}`,
+            }}
+            paths={{
+              list: `menu_nodes/${currentNode.id}/constraints`,
+              remove: `menu_nodes/${currentNode.id}/constraints/{id}`,
+              new: `menu_node_constraints`,
+              update: `menu_nodes/${currentNode.id}/{id}`,
+            }}
+            action={updateMenuNodeAction}
+            loading={loading}
+            leading={intl.formatMessage({ id: "constraints.description.menu" })}
+            locale={locale}
+          />
+        );
         break;
       default:
         setDialogContent(
-          "Publishing this node would make it visible on the bot's menu. Do you want to proceed?"
+          intl.formatMessage({ id: "constraints.description.menu" })
         );
-        setDialogTitle("Publish " + nodeType);
-        setDialogProceedFunction(() => patchNode);
+        setDialogTitle(
+          intl.formatMessage(
+            { id: "general.publish" },
+            {
+              subject: `${intl.formatMessage(
+                {
+                  id: `menu.type.${nodeType}`,
+                },
+                { count: 1 }
+              )}`,
+            }
+          )
+        );
+        setDialogProceedFunction(() => updateMenuNodeAction);
         setDialogProceedFunctionParams({
           isPublished: !currentNode.isPublished,
         });
         break;
     }
     toggleDialog();
+    setShowMenu(false);
   };
 
-  const showPanel = (action) => {
-    toggleContentPanel();
-  };
-
-  submitAction = (fields) => {
-    menuTimer();
+  submitAction = () => {
     const nodeTypeId = nodeTypes.filter((nodeType) => {
       return nodeType.name === activeNodeType;
     })[0].id;
+    let data = unflatten(formValues);
+    if (data.hasOwnProperty("translations")) {
+      Object.keys(data.translations).forEach((key) => {
+        data.translations[key]["locale"] = key;
+      });
+    }
     switch (currentAction) {
       case "edit":
         setActiveNode(activeNode);
-        update(Object.assign(activeNode, fields));
-        patchNode(fields);
+        update(Object.assign(activeNode, data));
+        updateMenuNodeAction(data);
         break;
       default:
         //create_node(fields.label,1,activeNodeType)
         //We will need to replace node dynamically instead of reloading in future
-        Object.keys(fields.translations).forEach((key) => {
-          if (activeNodeType === "content" && currentAction === "create") {
-            if (fields.content["translations"] === undefined) {
-              fields.content["translations"] = {};
-            }
-            fields.content["translations"] = {
-              ...fields.content["translations"],
-              ...{
-                [key]: {
-                  description: fields.translations[key]["description"],
-                  locale: key,
-                },
-              },
-            };
-          }
-        });
-
         if (activeNodeType === "content" && currentAction === "create") {
-          fields.content.text.forEach((translation) => {
-            Object.keys(translation.translations).forEach((key) => {
-              translation.translations[key]["locale"] = key;
-            });
-          });
-          post("contents", {
-            ...fields.content,
-            ...{ description: fields.description },
-          }).then((response) =>
-            persistNode(
-              {
-                ...fields,
-                ...{
-                  type: `/api/menu_node_types/${nodeTypeId}`,
-                  content: `/api/contents/${response.id}`,
-                  parent: `/api/menu_nodes/${activeNode.id}`,
-                },
-              },
-              () => {
-                toggleModal();
-                window.location.reload(false);
-              }
-            )
-          );
+          return;
         } else {
           persistNode(
             {
-              ...fields,
+              ...data,
               ...{
                 type: `/api/menu_node_types/${nodeTypeId}`,
                 parent: `/api/menu_nodes/${activeNode.id}`,
@@ -270,14 +475,9 @@ export const TreeBoxes = ({
             },
             () => {
               toggleModal();
-              window.location.reload(false);
             }
           );
         }
-
-        // setTimeout(function () {
-        //   window.location.reload(false);
-        // }, 8000);
         break;
     }
     setFormValues({});
@@ -286,32 +486,65 @@ export const TreeBoxes = ({
   const menuButtonActions = [
     {
       key: "newItem",
-      text: "Actions",
+      text: intl.formatMessage({ id: "general.actions" }),
       iconOnly: true,
       iconProps: { iconName: "Add" },
-      ariaLabel: "Actions",
+      ariaLabel: intl.formatMessage({ id: "general.actions" }),
       split: true,
+      role: "group",
       subMenuProps: {
         items: [
           {
             key: "contentMenu",
-            text: "Content",
+            text: capitaliseSentense(
+              intl.formatMessage({ id: "menu.type.content" }, { count: 1 })
+            ),
             iconProps: { iconName: "ContextMenu" },
             subMenuProps: {
               items: [
                 {
                   key: "contentMenuNew",
-                  text: "New content",
-                  onClick: (event) =>
-                    toggleContentPanel("Add content", "create-content-node", {
-                      nodeTypeId: currentNode.type.id,
-                      activeNode: currentNode,
-                    }),
+                  text: intl.formatMessage(
+                    { id: "general.new" },
+                    {
+                      subject: intl.formatMessage(
+                        { id: "menu.type.content" },
+                        { count: 1 }
+                      ),
+                    }
+                  ),
+                  onClick: (_event) => {
+                    toggleContentPanel(
+                      intl.formatMessage(
+                        { id: "general.add" },
+                        {
+                          subject: intl.formatMessage(
+                            { id: "menu.type.content" },
+                            { count: 1 }
+                          ),
+                        }
+                      ),
+                      "create-content-node",
+                      {
+                        nodeTypeId: currentNode.type.id,
+                        activeNode: currentNode,
+                      }
+                    );
+                    setShowMenu(false);
+                  },
                   iconProps: { iconName: "InsertTextBox" },
                 },
                 {
                   key: "contentMenuExisting",
-                  text: "Existing content",
+                  text: intl.formatMessage(
+                    { id: "general.existing" },
+                    {
+                      subject: intl.formatMessage(
+                        { id: "menu.type.content" },
+                        { count: 1 }
+                      ),
+                    }
+                  ),
                   onClick: () => showNodeModal("content", "attach"),
                   iconProps: { iconName: "TextDocument" },
                 },
@@ -326,7 +559,15 @@ export const TreeBoxes = ({
               items: [
                 {
                   key: "serviceMenuExisting",
-                  text: "Existing service",
+                  text: intl.formatMessage(
+                    { id: "general.existing" },
+                    {
+                      subject: intl.formatMessage(
+                        { id: "menu.type.service" },
+                        { count: 1 }
+                      ),
+                    }
+                  ),
                   onClick: () => showNodeModal("service", "attach"),
                   iconProps: { iconName: "WaitlistConfirm" },
                 },
@@ -335,8 +576,25 @@ export const TreeBoxes = ({
           },
           {
             key: "branchMenu",
-            text: "New branch",
+            text: intl.formatMessage(
+              { id: "general.new" },
+              {
+                subject: intl.formatMessage(
+                  { id: "menu.type.branch" },
+                  { count: 1 }
+                ),
+              }
+            ),
             onClick: () => showNodeModal("branch", "create"),
+            iconProps: { iconName: "BranchFork" },
+          },
+          {
+            key: "constraintsMenu",
+            text: intl.formatMessage(
+              { id: "general.manage" },
+              { subject: "constraints" }
+            ),
+            onClick: () => showDialog("branch", "constraints"),
             iconProps: { iconName: "BranchFork" },
           },
         ],
@@ -344,33 +602,63 @@ export const TreeBoxes = ({
     },
     {
       key: "editItem",
-      text: "Edit",
+      text: intl.formatMessage(
+        { id: "general.edit" },
+        {
+          subject: "",
+        }
+      ),
       iconOnly: true,
       onClick: () => {
         showNodeModal(currentNode.type.name, "edit");
       },
       iconProps: { iconName: "Edit" },
       split: true,
-      ariaLabel: "Edit node",
+      ariaLabel: intl.formatMessage(
+        { id: "general.edit" },
+        {
+          subject: intl.formatMessage({ id: "menu.node" }, { count: 1 }),
+        }
+      ),
     },
     {
       key: "publishItem",
-      text: "Publish",
+      text: intl.formatMessage(
+        { id: "general.publish" },
+        {
+          subject: "",
+        }
+      ),
       iconOnly: true,
       iconProps: { iconName: "PublishContent" },
       split: true,
-      ariaLabel: "Publish node",
+      ariaLabel: intl.formatMessage(
+        { id: "general.publish" },
+        {
+          subject: intl.formatMessage({ id: "menu.node" }, { count: 1 }),
+        }
+      ),
       onClick: () => {
         showDialog(currentNode.type.name, "publish");
       },
     },
     {
       key: "deleteItem",
-      text: "Delete node",
+      text: intl.formatMessage(
+        { id: "general.delete" },
+        {
+          subject: intl.formatMessage({ id: "menu.node" }, { count: 1 }),
+        }
+      ),
       iconOnly: true,
       iconProps: { iconName: "Delete" },
       split: true,
-      ariaLabel: "Delete node",
+      ariaLabel: intl.formatMessage(
+        { id: "general.delete" },
+        {
+          subject: intl.formatMessage({ id: "menu.node" }, { count: 1 }),
+        }
+      ),
       onClick: () => {
         showDialog(currentNode.type.name, "delete");
       },
@@ -379,9 +667,8 @@ export const TreeBoxes = ({
 
   const onLeaveNode = React.useCallback((ev) => {
     setShowMenu(false);
-    currentNode = null;
+    // currentNode = null; // Disabled temporarily, we will need reference of currentNode to attach newly created nodes
   }, []);
-  const menuTimer = (time = 10000) => setTimeout(onLeaveNode, time);
 
   const showContextMenu = (nodeItem) => {
     currentNode = nodeItem;
@@ -389,11 +676,10 @@ export const TreeBoxes = ({
       return d.id === nodeItem.id;
     })[0][0];
     setNodeRef(ref);
-    setShowMenu(true);
-
     //Let's update node menu according to node's properties
     setContentMenuActions(prepareContentMenu(menuButtonActions, nodeItem));
     setActiveNode(nodeItem);
+    setShowMenu(true);
   };
 
   let margin = {
@@ -409,11 +695,7 @@ export const TreeBoxes = ({
 
   const rectNode = { width: 280, height: 55, textMargin: 10 };
   let duration = 750;
-
-  let mousedown; // Use to save temporarily 'mousedown.zoom' value
-  let mouseWheel,
-    mouseWheelName,
-    isKeydownZoom = false;
+  let mouseWheelName = false;
 
   let tree = d3.layout.tree().size([height, width]);
   let baseSvg,
@@ -520,10 +802,12 @@ export const TreeBoxes = ({
   }
 
   function getLabel(translations) {
-    if (translations.length < 1 || translations[locale] === undefined)
-      return "";
+    let lbl = getFromStorage("ux_locale")
+      ? getFromStorage("ux_locale")
+      : locale;
+    if (translations.length < 1 || translations[lbl] === undefined) return "";
 
-    return translations[locale]["label"];
+    return translations[lbl]["label"];
   }
 
   function update(source) {
@@ -566,12 +850,12 @@ export const TreeBoxes = ({
     });
     // Enter any new nodes at the parent's previous position
     // We use "insert" rather than "append", so when a new child node is added (after a click)
-    // it is added at the top of the group, so it is drawed first
-    // else the nodes tooltips are drawed before their children nodes and they
+    // it is added at the top of the group, so it is drawn first
+    // else the nodes tooltips are drawn before their children nodes and they
     // hide them
     let nodeEnter = node
       .enter()
-      .append("g", "g.node")
+      .insert("g", "g.node")
       .attr("class", "node")
       .attr("type", function (d) {
         return d.type;
@@ -587,15 +871,15 @@ export const TreeBoxes = ({
       })
       .on("click", function (d) {
         click(d);
+        setShowMenu(false);
       })
-      .on("mouseenter", (element) => {
+      .on("contextmenu", (element) => {
+        d3.event.preventDefault();
         showContextMenu(element);
-      })
-      .on("mouseleave", () => {
-        timerId = menuTimer();
       });
-
-    saveNodeRef(nodeEnter);
+    // .on("mouseleave", () => {
+    //   timerId = menuTimer();
+    // });
 
     nodeEnter
       .append("g")
@@ -639,7 +923,7 @@ export const TreeBoxes = ({
       });
 
     // Transition nodes to their new position.
-    var nodeUpdate = node
+    let nodeUpdate = node
       .transition()
       .duration(duration)
       .attr("transform", function (d) {
@@ -651,9 +935,10 @@ export const TreeBoxes = ({
     });
 
     nodeUpdate.select("text").style("fill-opacity", 1);
+    saveNodeRef(nodeUpdate);
 
     // Transition exiting nodes to the parent's new position
-    var nodeExit = node
+    let nodeExit = node
       .exit()
       .transition()
       .duration(duration)
@@ -680,25 +965,19 @@ export const TreeBoxes = ({
     });
 
     // 2) ******************* Update the links *******************
-    var link = getLinkGroup(getSvgGroup(getBaseSvg()))
+    let link = getLinkGroup(getSvgGroup(getBaseSvg()))
       .selectAll("path")
       .data(links, function (d) {
         return d.target.id;
       });
+
+    updateSideBarheight();
 
     function linkMarkerStart(direction, isSelected) {
       if (direction === "SYNC") {
         return isSelected ? "url(#start-arrow-selected)" : "url(#start-arrow)";
       }
       return "";
-    }
-
-    function linkType(link) {
-      if (link.direction === "SYNC") return "Synchronous [\u2194]";
-      else {
-        if (link.direction === "ASYN") return "Asynchronous [\u2192]";
-      }
-      return "???";
     }
 
     d3.selection.prototype.moveToFront = function () {
@@ -709,7 +988,7 @@ export const TreeBoxes = ({
 
     // Enter any new links at the parent's previous position.
     // Enter any new links at the parent's previous position.
-    let linkenter = link
+    link
       .enter()
       .insert("path", "g")
       .attr("class", "link")
@@ -738,7 +1017,7 @@ export const TreeBoxes = ({
       });
 
     // Transition links to their new position.
-    let linkUpdate = link
+    link
       .transition()
       .duration(duration)
       .attr("d", function (d) {
@@ -771,7 +1050,7 @@ export const TreeBoxes = ({
     ];
     d3.select(".drawarea").attr(
       "transform",
-      "translate(" + translation + ")" + " scale(" + scale + ")"
+      `translate(${translation}) scale(${scale})`
     );
   }
 
@@ -835,17 +1114,6 @@ export const TreeBoxes = ({
           siblings[i + 1].x = siblings[i].x + rectNode.height + minPadding;
       }
     }
-  }
-
-  function removeMouseEvents() {
-    // Drag and zoom behaviors are temporarily disabled, so tooltip text can be selected
-    mousedown = d3.select("#tree-container").select("svg").on("mousedown.zoom");
-    d3.select("#tree-container").select("svg").on("mousedown.zoom", null);
-  }
-
-  function reactivateMouseEvents() {
-    // Reactivate the drag and zoom behaviors
-    d3.select("#tree-container").select("svg").on("mousedown.zoom", mousedown);
   }
 
   // Name of the event depends of the browser
@@ -984,26 +1252,6 @@ export const TreeBoxes = ({
       .attr("d", "M10,-5L0,0L10,5");
   }
 
-  function delete_node(node) {
-    visit(
-      data,
-      function (d) {
-        if (d.children) {
-          for (var child of d.children) {
-            if (child === node) {
-              d.children.splice(d.children.indexOf(child), 1);
-              update(root);
-              break;
-            }
-          }
-        }
-      },
-      function (d) {
-        return d.children && d.children.length > 0 ? d.children : null;
-      }
-    );
-  }
-
   function create_link(label, name) {
     return {
       name: "Link from " + label + " to " + name,
@@ -1012,96 +1260,57 @@ export const TreeBoxes = ({
     };
   }
 
-  function create_node(name, position, type) {
-    if (currentNode !== null) {
-      if (currentNode._children !== null) {
-        currentNode.children = currentNode._children;
-        currentNode._children = null;
-      }
-      if (currentNode.children === null || currentNode.children === undefined) {
-        currentNode.children = [];
-      }
-      var new_node = {
-        nodeName: name,
-        label: name,
-        id: generateUUID(),
-        type: type,
-        position: position,
-        children: [],
-        link: create_link(currentNode.label, name),
-      };
-      currentNode.children.push(new_node);
-    }
-    update(currentNode);
-  }
+  const createDataTree = (dataset) => {
+    let hashTable = Object.create(null);
+    dataset.forEach(
+      (aData) => (hashTable[aData.id] = { ...aData, children: [] })
+    );
+    let dataTree = [];
+    dataset.forEach((aData) => {
+      if (aData.parent) {
+        hashTable[
+          aData.parent.substr(aData.parent.lastIndexOf("/") + 1)
+        ].children.push(hashTable[aData.id]);
+      } else dataTree.push(hashTable[aData.id]);
+    });
+    return dataTree;
+  };
 
-  function visit(parent, visitFn, childrenFn) {
-    if (!parent) return;
-
-    visitFn(parent);
-
-    var children = childrenFn(parent);
-    if (children) {
-      var count = children.length;
-      for (var i = 0; i < count; i++) {
-        visit(children[i], visitFn, childrenFn);
-      }
-    }
-  }
+  const preventSubmit = (status, message = "") => {
+    setBlockSubmit(status);
+    setLoaderLabel(message);
+  };
 
   React.useEffect(() => {
-    if (data) {
-      drawTree(data);
-      //We need to preload content so that if user wants to add existing content to node, we do not have to query each time:
-      makeListRequest({
-        url: "contents",
-        options: { "groups[]": "translations" },
-      })
-        .then((response) => {
-          return response.reduce((rest, curr) => {
-            if (curr.label !== null) {
-              rest.push({
-                key: `/api/contents/${curr.id}`,
-                header: curr.label,
-                status: curr.isPublished,
-              });
-            }
-            return rest;
-          }, []);
-        })
-        .then((result) => {
-          contentArray = result;
-        });
-
-      makeListRequest({
-        url: "services",
-        options: { "groups[]": "translations" },
-      })
-        .then((response) => {
-          return response.reduce((rest, curr) => {
-            if (curr.label !== null) {
-              rest.push({
-                key: `/api/services/${curr.id}?groups[]=list`,
-                header: curr.name,
-                status: curr.isPublished,
-              });
-            }
-            return rest;
-          }, []);
-        })
-        .then((result) => {
-          servicesArray = result;
-        });
-    } else console.log(data);
-  }, [data]);
+    if (menuTree && menuTree.length > 0) {
+      let m = createDataTree(menuTree)[0];
+      setTreeData(m);
+      setNodeCount(menuTree.length);
+    } else console.log(menuTree);
+  }, [menuTree]);
 
   React.useEffect(() => {
-    update(root);
+    if (
+      Object.keys(treeData).length > 0 &&
+      treeData.children.length !== nodeCount
+    )
+      drawTree(treeData);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [treeData]);
+
+  React.useEffect(() => {
+    if (Object.keys(treeData).length > 0) update(root);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locale]);
+
+  React.useEffect(() => {
+    setShowMenu(true);
+  }, [nodeRef]);
 
   return (
     <div>
-      <div id='tree-container'></div>
+      <div id="tree-container" onClick={() => setShowMenu(false)}></div>
+
       {showMenu && nodeRef && (
         <ContextMenu
           menuButtons={contentMenuActions}
@@ -1120,15 +1329,40 @@ export const TreeBoxes = ({
           modalHidden={modalHidden}
           showModal={toggleModal}
           content={
-            <DynamicForm
-              formWidth={650}
-              inputs={modalContent}
-              onSubmit={submitAction}
-              theme={theme}
-              inputValues={formValues}
-              valuesChanged={UpdateFormValue}
-              loading={loading}
-            />
+            <>
+              {blockSubmit && (
+                <Overlay className={"loader"}>
+                  <Loader label={loaderLabel} size="largest" />
+                </Overlay>
+              )}
+              <form
+                noValidate
+                onSubmit={(e) => {
+                  e.preventDefault();
+                }}
+                style={{ width: "100%" }}
+                className="validate"
+              >
+                <DynamicForm
+                  formWidth={650}
+                  inputs={modalContent}
+                  onSubmit={(e, data, history) => {
+                    let hasErrors = validateForm(
+                      e.target.closest("form").elements
+                    );
+                    if (!hasErrors) {
+                      submitAction(data, history);
+                    }
+                  }}
+                  theme={theme}
+                  inputValues={formValues}
+                  valuesChanged={UpdateFormValue}
+                  loading={loading}
+                  handleSearchQuery={onSearch}
+                  preventSubmit={preventSubmit}
+                />
+              </form>
+            </>
           }
           loading={loading}
         ></ModalContainer>
@@ -1136,11 +1370,11 @@ export const TreeBoxes = ({
       {dialogHidden === false && (
         <DialogBox
           title={dialogTitle}
-          dialogHidden={dialogHidden}
+          dialogHidden={!dialogHidden}
           showDialog={toggleDialog}
           content={dialogContent}
-          cancel='Cancel'
-          confirm='Confirm'
+          cancel={dialogCancel}
+          confirm={dialogConfirm}
           proceedFunction={dialogProceedFunction}
           params={dialogProceedFunctionParams}
         ></DialogBox>
@@ -1148,3 +1382,14 @@ export const TreeBoxes = ({
     </div>
   );
 };
+
+const mapStateToProps = ({ menuReducer }) => {
+  const { loading, menuTree } = menuReducer;
+  return { loading, menuTree };
+};
+
+export default connect(mapStateToProps, {
+  createNodeAction: createMenuNode,
+  removeMenuNodeAction: removeMenuNode,
+  updateMenuNodeAction: updateMenuNode,
+})(styled(TreeBoxes, getStyles));

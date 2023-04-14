@@ -1,5 +1,4 @@
 import React from "react";
-import { FontSizes, FontWeights } from "@fluentui/theme";
 import { connect } from "react-redux";
 import { getStyles } from "components/layout/Sidebar/Nav/Nav.styles";
 import {
@@ -11,18 +10,12 @@ import {
 } from "../../../redux/actions";
 import { PanelContainer, DialogBox } from "components/containers";
 import { Table } from "components/containers/table";
-import {
-  getTheme,
-  Stack,
-  styled,
-  Icon,
-  TooltipHost,
-  mergeStyles,
-  mergeStyleSets,
-} from "@fluentui/react";
+import { Form, Button, BanIcon, AcceptIcon } from "@fluentui/react-northstar";
+import { styled } from "@fluentui/react";
 import { DynamicForm } from "components/forms";
-import { addChannel } from "global/defaultValues";
-import { flat, getFromStorage } from "helpers/utils";
+import { capitaliseSentense, flat, validateForm } from "helpers/utils";
+import { useLanguages } from "helpers/utilities";
+import { useIntl } from "react-intl";
 
 const Channels = ({
   loading,
@@ -30,41 +23,96 @@ const Channels = ({
   channel,
   getChannelsAction,
   createChannelAction,
-  getChannelAction,
   updateChannelAction,
   removeChannelAction,
   error,
 }) => {
-  const theme = getTheme();
-  const [locale, setLocale] = React.useState(getFromStorage("locale"));
+  const { locale } = useLanguages();
+  const intl = useIntl();
   const [panelHidden, setPanelHidden] = React.useState(false);
   const [panelTitle, setPanelTitle] = React.useState("");
   const [formValues, setFormValues] = React.useState({});
   const [persistStatus, setPersistStatus] = React.useState(undefined);
-  const [dialogHidden, setDialogHidden] = React.useState(true);
+  const [dialogHidden, setDialogHidden] = React.useState(false);
   const [dialogTitle, setDialogTitle] = React.useState("");
   const [dialogContent, setDialogContent] = React.useState([]);
+  const [action, setAction] = React.useState("");
   const [dialogProceedFunction, setDialogProceedFunction] =
     React.useState(null);
   const [dialogProceedFunctionParams, setDialogProceedFunctionParams] =
     React.useState({});
   let selected = [];
-  const iconClass = mergeStyles({
-    fontSize: 20,
-    height: 20,
-    width: 20,
-    margin: "0 auto",
-    cursor: "pointer",
-    FontWeight: 600,
-  });
-  const classNames = mergeStyleSets({
-    danger: [{ color: theme.palette.redDark }, iconClass],
-    success: [{ color: theme.palette.green }, iconClass],
-  });
 
   const showPanel = () => {
     return setPanelHidden(!panelHidden);
   };
+
+  const addChannel = [
+    {
+      name: "name",
+      key: "name",
+      required: true,
+      length: 50,
+      type: "string",
+      label: intl.formatMessage({ id: "general.name" }),
+      translatable: false,
+      variant: "northstar",
+    },
+    {
+      name: "prefix",
+      key: "prefix",
+      required: false,
+      hint: intl.formatMessage({ id: "general.prefix.hint" }),
+      length: 3,
+      type: "string",
+      label: intl.formatMessage({ id: "general.prefix" }),
+      translatable: false,
+      variant: "northstar",
+    },
+    {
+      name: "postfix",
+      key: "postfix",
+      required: false,
+      hint: intl.formatMessage({ id: "general.postfix.hint" }),
+      length: 3,
+      type: "string",
+      label: intl.formatMessage({ id: "general.postfix" }),
+      translatable: false,
+      variant: "northstar",
+    },
+    {
+      name: "characterLength",
+      key: "characterLength",
+      required: false,
+      length: 10,
+      type: "integer",
+      label: intl.formatMessage({ id: "channels.characters.per.message" }),
+      translatable: false,
+      variant: "northstar",
+    },
+    {
+      name: "isEnabled",
+      key: "isEnabled",
+      required: false,
+      length: 3,
+      type: "boolean",
+      label: intl.formatMessage({ id: "language.enabled" }),
+      translatable: false,
+      selectedText: intl.formatMessage({ id: "general.activated" }),
+      deselectedText: intl.formatMessage({ id: "general.deactivated" }),
+    },
+    {
+      name: "isRichText",
+      key: "isRichText",
+      required: false,
+      length: 3,
+      type: "boolean",
+      label: intl.formatMessage({ id: "channels.richtext.support" }),
+      translatable: false,
+      selectedText: intl.formatMessage({ id: "general.yes" }),
+      deselectedText: intl.formatMessage({ id: "general.no" }),
+    },
+  ];
 
   const toggleDialog = () => {
     setDialogHidden(!dialogHidden);
@@ -73,17 +121,18 @@ const Channels = ({
   const menuActions = [
     {
       key: "newItem",
-      text: "New",
+      text: intl.formatMessage({ id: "general.new" }, { subject: "" }),
       cacheKey: "myCacheKey", // changing this key will invalidate this item's cache
       iconProps: { iconName: "Add" },
       onClick: () => {
-        setPanelTitle("Add Channel");
+        setAction("add");
+        setPanelTitle(intl.formatMessage({ id: "channels.add" }));
         showPanel();
       },
     },
     {
       key: "edit",
-      text: "Edit",
+      text: intl.formatMessage({ id: "general.edit" }, { subject: "" }),
       iconProps: { iconName: "Edit" },
       disabled: true,
       onClick: () => onItemInvoked(selected[0]),
@@ -91,16 +140,17 @@ const Channels = ({
     },
     {
       key: "delete",
-      text: "Delete",
+      text: intl.formatMessage({ id: "general.delete" }, { subject: "" }),
       iconProps: { iconName: "Delete" },
       disabled: true,
-      activeCount: " > 0",
+      activeCount: " === 1",
+      onClick: () => onItemRemove(selected[0]),
     },
   ];
 
   const columns = [
     {
-      name: "Name",
+      name: intl.formatMessage({ id: "general.name" }),
       fieldName: `name`,
       key: `name`,
       data: "string",
@@ -109,82 +159,115 @@ const Channels = ({
       isMultiline: true,
       isSorted: false,
       isSortedDescending: false,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
-    },
-    {
-      name: "ISO Code",
-      fieldName: `code`,
-      key: `code`,
-      data: "string",
-      isRowHeader: true,
-      isResizable: true,
-      isMultiline: true,
-      isSorted: false,
-      isSortedDescending: false,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
     },
     {
       fieldName: "isEnabled",
-      name: "Enabled?",
+      name: intl.formatMessage({ id: "general.isenabled" }),
       key: "isEnabled",
       data: "boolean",
-      isRowHeader: true,
       isResizable: true,
       isSorted: false,
       isSortedDescending: false,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
       onRender: (item) => {
         return (
-          <TooltipHost content={item.isEnabled ? `Enabled` : `Disabled`}>
-            <Icon
-              iconName={item.isEnabled ? `Accept` : `CalculatorMultiply`}
-              className={
-                item.isEnabled ? classNames.success : classNames.danger
-              }
-            />
-          </TooltipHost>
+          <Button
+            icon={item.isEnabled ? <AcceptIcon /> : <BanIcon />}
+            text
+            content={
+              item.isEnabled
+                ? intl.formatMessage({ id: "general.yes" })
+                : intl.formatMessage({ id: "general.no" })
+            }
+            onClick={() => {
+              setDialogTitle(intl.formatMessage({ id: "channels.modify" }));
+              setDialogContent(
+                intl.formatMessage(
+                  { id: "channels.toggle" },
+                  {
+                    subject: item.isEnabled
+                      ? intl.formatMessage({ id: "general.deactivate" })
+                      : intl.formatMessage({ id: "general.activate" }),
+                  }
+                )
+              );
+              toggleDialog();
+              setDialogProceedFunction(() => updateChannelAction);
+              setDialogProceedFunctionParams({
+                isEnabled: !item.isEnabled,
+                id: item.id,
+              });
+            }}
+          />
         );
       },
     },
     {
-      name: "Created on",
+      name: intl.formatMessage({ id: "general.created.on" }),
       key: "createdAt",
       fieldName: "createdAt",
       data: "string",
-      isRowHeader: true,
       isResizable: true,
       isSorted: true,
       minWidth: 150,
       isSortedDescending: true,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
       onRender: (dt) => {
-        return new Date(dt.createdAt).toLocaleString();
+        return intl.formatDate(new Date(dt.createdAt), {
+          year: "numeric",
+          month: "short",
+          hour: "numeric",
+          minute: "numeric",
+          day: "numeric",
+        });
       },
     },
     {
-      name: "Updated on",
+      name: intl.formatMessage({ id: "general.updated.on" }),
       key: "updatedAt",
       fieldName: "updatedAt",
       data: "string",
-      isRowHeader: true,
       isResizable: true,
       isSorted: false,
       minWidth: 150,
       isSortedDescending: true,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
       onRender: (dt) => {
-        return new Date(dt.updatedAt).toLocaleString();
+        return intl.formatDate(new Date(dt.updatedAt), {
+          year: "numeric",
+          month: "short",
+          hour: "numeric",
+          minute: "numeric",
+          day: "numeric",
+        });
       },
     },
   ];
 
   const onItemInvoked = (item) => {
-    setPanelTitle("Edit item");
+    setPanelTitle(intl.formatMessage({ id: "general.edit" }, { subject: "" }));
+    setAction("edit");
     let temp = flat(item);
     setFormValues(
       Object.keys(temp).reduce((res, key) => {
@@ -195,6 +278,12 @@ const Channels = ({
     setPanelHidden(true);
   };
 
+  const updateValues = (values) => {
+    setFormValues((prev) => {
+      return { ...prev, ...values };
+    });
+  };
+
   const updateSelected = (items) => {
     selected = items;
   };
@@ -202,11 +291,9 @@ const Channels = ({
   const onItemRemove = (item) => {
     toggleDialog();
     setDialogProceedFunctionParams(item);
-    setDialogTitle("Remove channel");
+    setDialogTitle(intl.formatMessage({ id: "channels.remove" }));
     setDialogProceedFunction(() => removeChannelAction);
-    setDialogContent(
-      "You are about to remove a channel. This may have adverse effects in the case users access the platform through this channel. Content targeting this channel will also be removed. Would you still like to proceed?"
-    );
+    setDialogContent(intl.formatMessage({ id: "channels.remove.confirm" }));
   };
 
   const onPanelDismiss = () => {
@@ -217,8 +304,15 @@ const Channels = ({
 
   React.useEffect(() => {
     if (error !== undefined) setPersistStatus({ error: error });
-    if (channel !== undefined) setPersistStatus({ success: channel });
+    if (channel !== undefined && loading === false)
+      setPersistStatus({ success: channel });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channel, error]);
+
+  React.useEffect(() => {
+    setPanelHidden(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   return (
     <>
@@ -233,7 +327,9 @@ const Channels = ({
         cols={columns}
         isCompactMode={false}
         locale={locale}
-        header={"Channels"}
+        header={capitaliseSentense(
+          intl.formatMessage({ id: "channels" }, { count: 1 })
+        )}
       />
       {panelTitle.length > 0 && (
         <PanelContainer
@@ -243,21 +339,36 @@ const Channels = ({
           header={panelTitle}
           showPanel={showPanel}
           content={
-            <DynamicForm
-              submitStatus={persistStatus}
-              channels={channels}
-              inputs={addChannel}
-              onSubmit={
-                Object.keys(formValues).length > 0
-                  ? updateChannelAction
-                  : createChannelAction
-              }
-              locale={locale}
-              error={error}
-              inputValues={formValues}
-            />
+            <Form
+              noValidate
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+              style={{ width: "100%" }}
+              className="validate"
+            >
+              <DynamicForm
+                submitStatus={persistStatus}
+                channels={channels}
+                inputs={addChannel}
+                valuesChanged={updateValues}
+                onSubmit={(e, data) => {
+                  let hasErrors = validateForm(
+                    e.target.parentElement.form.elements
+                  );
+                  if (!hasErrors) {
+                    action.includes("add")
+                      ? createChannelAction(data)
+                      : updateChannelAction(data);
+                  }
+                }}
+                locale={locale}
+                error={error}
+                inputValues={formValues}
+              />
+            </Form>
           }
-          description='The platform supports interaction in multiple channels. Adding a channel here will make it available for users within the platform. If you already had content in the system, it would be advisable to go back and update the content for this new channel for the benefit of your users.'
+          description={intl.formatMessage({ id: "channel.description" })}
         />
       )}
       <DialogBox
@@ -265,8 +376,8 @@ const Channels = ({
         dialogHidden={dialogHidden}
         showDialog={toggleDialog}
         content={dialogContent}
-        cancel='Cancel'
-        confirm='Confirm'
+        cancel={intl.formatMessage({ id: "general.cancel" })}
+        confirm={intl.formatMessage({ id: "general.confirm" })}
         proceedFunction={dialogProceedFunction}
         params={dialogProceedFunctionParams}
       />

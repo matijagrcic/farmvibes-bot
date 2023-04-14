@@ -18,7 +18,14 @@ export const ToggleField = ({
   checkedValue = "",
 }) => {
   const handleSelect = (e, props) => {
-    handleChange(name, props.value);
+    handleChange(
+      name,
+      props.value === "true"
+        ? true
+        : props.value === "false"
+        ? false
+        : props.value
+    );
   };
 
   return (

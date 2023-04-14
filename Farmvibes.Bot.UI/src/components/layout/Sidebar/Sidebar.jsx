@@ -1,13 +1,13 @@
 import React from "react";
 import { isArray } from "lodash";
-import { useHistory, useLocation, matchPath } from "react-router-dom";
+import { useNavigate, useLocation, matchPath } from "react-router-dom";
 import { NavToggler } from "./Nav";
 import { findNode, getParents } from "global/hierarchical";
 import routes from "routes";
 
 function findRoute(pathname) {
   const current = findNode(routes, (route) => {
-    const match = matchPath(pathname, route);
+    const match = matchPath(route, pathname);
     return match?.isExact;
   });
   const paths = current ? getParents(current) : [];
@@ -23,7 +23,7 @@ function hasChildren(route) {
 }
 
 export function Sidebar() {
-  const history = useHistory();
+  const navigate = useNavigate();
   const { pathname } = useLocation();
 
   const { current, paths } = findRoute(pathname);
@@ -37,7 +37,7 @@ export function Sidebar() {
       url: route.path,
       onClick: (e) => {
         e.preventDefault();
-        history.push(route.path);
+        navigate(route.path);
       },
       isExpanded:
         deeply &&

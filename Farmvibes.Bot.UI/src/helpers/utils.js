@@ -21,6 +21,251 @@ export const setToStorage = (key, data) => {
     console.log(">>>>: src/helpers/utils.js : setToStorage -> error", error);
   }
 };
+//Fetch registration fields to be used in constraints and customisation of outgoing messages
+export const getRegistrationFields = () => {
+  let regFields =
+    getFromStorage("reg") !== null
+      ? getFromStorage("reg")
+      : makeListRequest({
+          url: `services/${process.env.REACT_APP_REGISTRATION_ID}/questions`,
+        }).then((result) => {
+          console.log(result);
+          setToStorage("reg", result);
+          return result;
+        });
+  return regFields ? regFields : [];
+};
+
+//Validate form fields
+export const handleValidation = (field) => {
+  // Don't validate submits, buttons, file and reset inputs, and disabled fields
+  if (
+    field.disabled ||
+    field.type === "file" ||
+    field.type === "reset" ||
+    field.type === "submit" ||
+    field.type === "button"
+  )
+    return;
+
+  // Get validity
+  var validity = field.validity;
+
+  // If valid, return null
+  if (validity.valid) return;
+
+  // If field is required and empty
+  if (validity.valueMissing) return "Please fill out this field.";
+
+  // If not the right type
+  if (validity.typeMismatch) {
+    // Email
+    if (field.type === "email") return "Please enter an email address.";
+
+    // URL
+    if (field.type === "url") return "Please enter a URL.";
+  }
+
+  // If too short
+  if (validity.tooShort)
+    return (
+      "Please lengthen this text to " +
+      field.getAttribute("minLength") +
+      " characters or more. You are currently using " +
+      field.value.length +
+      " characters."
+    );
+
+  // If too long
+  if (validity.tooLong)
+    return (
+      "Please shorten this text to no more than " +
+      field.getAttribute("maxLength") +
+      " characters. You are currently using " +
+      field.value.length +
+      " characters."
+    );
+
+  // If number input isn't a number
+  if (validity.badInput) return "Please enter a number.";
+
+  // If a number value doesn't match the step interval
+  if (validity.stepMismatch) return "Please select a valid value.";
+
+  // If a number field is over the max
+  if (validity.rangeOverflow)
+    return (
+      "Please select a value that is no more than " +
+      field.getAttribute("max") +
+      "."
+    );
+
+  // If a number field is below the min
+  if (validity.rangeUnderflow)
+    return (
+      "Please select a value that is no less than " +
+      field.getAttribute("min") +
+      "."
+    );
+
+  // If pattern doesn't match
+  if (validity.patternMismatch) {
+    // If pattern info is included, return custom error
+    if (field.hasAttribute("title")) return field.getAttribute("title");
+
+    // Otherwise, generic error
+    return "Please match the requested format.";
+  }
+
+  // If all else fails, return a generic catchall error
+  return "The value you entered for this field is invalid.";
+};
+
+// Show an error message
+export const showError = (field, error) => {
+  // Add error class to field
+  field.classList.add("error");
+  field.setAttribute("aria-invalid", "true");
+
+  // If the field is a radio button and part of a group, error all and get the last item in the group
+  if (field.type === "radio" && field.name) {
+    var group = document.getElementsByName(field.name);
+    if (group.length > 0) {
+      for (var i = 0; i < group.length; i++) {
+        // Only check fields in current form
+        if (group[i].form !== field.name) continue;
+        group[i].classList.add("error");
+      }
+      field = group[group.length - 1];
+    }
+  }
+
+  // Get field id or name
+  var id = field.id || field.name;
+  if (!id) return;
+
+  // Check if error message field already exists
+  // If not, create one
+  var message = field.form.querySelector(".error-message#error-for-" + id);
+  if (!message) {
+    message = document.createElement("div");
+    message.className = "error-message";
+    message.id = "error-for-" + id;
+
+    // If the field is a radio button or checkbox, insert error after the label
+    var label;
+    if (field.type === "radio" || field.type === "checkbox") {
+      label =
+        field.form.querySelector('label[for="' + id + '"]') || field.parentNode;
+      if (label) {
+        label.parentNode.insertBefore(message, label.nextSibling);
+      }
+    }
+
+    // Otherwise, insert it after the field
+    if (!label) {
+      field.parentNode.insertBefore(message, field.nextSibling);
+    }
+  }
+
+  // Add ARIA role to the field
+  field.setAttribute("aria-describedby", "error-for-" + id);
+
+  // Update error message
+  message.innerHTML = error;
+
+  // Show error message
+  message.style.display = "block";
+  message.style.visibility = "visible";
+};
+
+export const getToken = (instance) => {
+  const accounts = instance.getAllAccounts();
+
+  if (Array.isArray(accounts) && accounts.length === 0) return null;
+
+  let data = JSON.parse(
+    sessionStorage.getItem(
+      `${accounts[0].homeAccountId}-${accounts[0].environment}-idtoken-${process.env.REACT_APP_AZURE_CLIENT_ID}-${process.env.REACT_APP_TENANT_ID}---`
+    )
+  );
+
+  return data === null ? data : data.secret;
+};
+
+export const isTokenExpired = (token) => {
+  if (token === null) return false;
+  const expiry = JSON.parse(window.atob(token.split(".")[1])).exp;
+  return Date.now() >= expiry * 1000 ? false : true;
+};
+
+// Remove the error message
+export const removeError = (field) => {
+  // Remove error class to field
+  field.classList.remove("error");
+
+  // Remove ARIA role from the field
+  field.removeAttribute("aria-describedby");
+
+  // If the field is a radio button and part of a group, remove error from all and get the last item in the group
+  if (field.type === "radio" && field.name) {
+    var group = document.getElementsByName(field.name);
+    if (group.length > 0) {
+      for (var i = 0; i < group.length; i++) {
+        // Only check fields in current form
+        if (group[i].form !== field.name) continue;
+        group[i].classList.remove("error");
+      }
+      field = group[group.length - 1];
+    }
+  }
+
+  // Get field id or name
+  var id = field.id || field.name;
+  if (!id) return;
+
+  // Check if an error message is in the DOM
+  var message = field.form.querySelector(".error-message#error-for-" + id + "");
+  if (!message) return;
+
+  // If so, hide it
+  message.innerHTML = "";
+  message.style.display = "none";
+  message.style.visibility = "hidden";
+};
+
+//Validate form on submit
+export const validateForm = (fields) => {
+  let error, hasErrors;
+  for (let i = 0; i < fields.length; i++) {
+    error = handleValidation(fields[i]);
+    if (error) {
+      showError(fields[i], error);
+      if (!hasErrors) {
+        hasErrors = fields[i];
+      }
+    }
+  }
+  return hasErrors;
+};
+
+export const getPlatformComponents = async (url, key) => {
+  if (getFromStorage(key)) {
+    return getFromStorage(key);
+  }
+
+  let response = await makeListRequest({
+    url,
+  }).then((result) => {
+    setToStorage(key, result);
+    return result;
+  });
+  return response;
+};
+
+export const clearStorage = () => {
+  localStorage.clear();
+};
 
 export const getFromStorage = (key) => {
   try {
@@ -30,6 +275,24 @@ export const getFromStorage = (key) => {
   } catch (error) {
     console.log(">>>>: src/helpers/utils.js  : getFromStorage -> error", error);
     return null;
+  }
+};
+
+/*
+  Resizes side-bar height according to the height of the content. This is for sitautions where 100v in CSS doesn't suffice like when drawing complex menu tree
+  */
+export const updateSideBarheight = () => {
+  //We need to resize the side bar height to avoid white-space if menu is too long
+  let menu = document.getElementsByClassName("root-116");
+  if (menu.length > 0) {
+    menu[0].setAttribute(
+      "style",
+      `height:
+        ${
+          document.getElementById("tree-container").getBoundingClientRect()
+            .height + 200
+        }px`
+    );
   }
 };
 
@@ -46,6 +309,11 @@ export const generateUUID = () => {
     }
   );
   return uuid;
+};
+
+export const encodeGroupURI = (name, items) => {
+  let prefix = `${name}[]=`;
+  return prefix + items.map((o) => encodeURI(o)).join(`&${prefix}`);
 };
 
 export const createNewNode = ({ name, type, options = [] }) => {};
@@ -126,21 +394,69 @@ export const prepareContentMenu = (buttons, node) => {
     if (menuButtonAction.key === "newItem") {
       switch (node.type.name) {
         case "content":
-          menuButtonAction.subMenuProps.items.filter((subMenu) => {
-            return subMenu.key === "contentMenu";
-          })[0]["disabled"] = true;
+          menuButtonAction.subMenuProps.items
+            .filter((subMenu) => {
+              return (
+                subMenu.key === "contentMenu" ||
+                subMenu.key === "serviceMenu" ||
+                subMenu.key === "branchMenu"
+              );
+            })
+            .forEach((menu) => (menu["disabled"] = true));
+          break;
+
+        case "service":
+          menuButtonAction.subMenuProps.items
+            .filter((subMenu) => {
+              return (
+                subMenu.key === "contentMenu" ||
+                subMenu.key === "serviceMenu" ||
+                subMenu.key === "branchMenu"
+              );
+            })
+            .forEach((menu) => (menu["disabled"] = true));
           break;
 
         default:
-          menuButtonAction.subMenuProps.items.filter((subMenu) => {
-            return subMenu.key === "contentMenu";
-          })[0]["disabled"] = false;
+          menuButtonAction.subMenuProps.items
+            .filter((subMenu) => {
+              return (
+                subMenu.key === "contentMenu" ||
+                subMenu.key === "serviceMenu" ||
+                subMenu.key === "branchMenu"
+              );
+            })
+            .forEach((menu) => (menu["disabled"] = false));
           break;
       }
     }
     return menuButtonAction;
   });
   return buttons;
+};
+
+/* Searches object for values. Object can be string, array or object */
+export const includesText = (data, text, deep = false, exact = false) => {
+  return Object.values(data).some((txt) => {
+    if (
+      txt !== null &&
+      typeof txt === "object" &&
+      txt.constructor === Object &&
+      deep
+    )
+      return includesText(txt, text, deep);
+    if (txt !== null && txt.constructor === Array && deep)
+      return (
+        txt.filter((j) => {
+          return includesText(j, text);
+        }).length > 0
+      );
+    if (typeof txt === "string" && txt !== null) {
+      if (exact) return txt.toLowerCase() === text.toLowerCase();
+      else return txt.toLowerCase().includes(text.toLowerCase());
+    }
+    return false;
+  });
 };
 
 /* Adds locale property to unflattened object as expected by API before persisting */
@@ -191,4 +507,23 @@ export const serialize = (value) => {
       // Join them all with line breaks denoting paragraphs.
       .join("\n")
   );
+};
+
+//Returns items in local storage items from IRI
+export const getFromIri = (item, iri) => {
+  let result = getFromStorage(item).filter(
+    (itm) => itm.id === iri.substring(iri.lastIndexOf("/") + 1)
+  );
+  if (result) return result[0];
+  return;
+};
+
+export const capitaliseSentense = (text) => {
+  return text
+    .replace(/([.?!])(\s)*(?=[A-Z])/g, "$1|")
+    .split("|")
+    .map((word) => {
+      return word.replace(/^\w/, (c) => c.toUpperCase());
+    })
+    .join(" ");
 };

@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import { Redirect, Route, Switch } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 const Menus = React.lazy(() =>
   import(/* webpackChunkName: "menus" */ "./menu")
@@ -10,19 +10,12 @@ const MenuDetails = React.memo(
 );
 
 const Menu = ({ route }) => (
-  <Suspense fallback={<div className='loading' />}>
-    <Switch>
-      <Redirect exact from={`${route.path}/`} to={`${route.path}/list`} />
-      <Route
-        path={`${route.path}/list`}
-        render={(props) => <Menus {...props} />}
-      />
-      <Route
-        path={`${route.path}/details/:menuId`}
-        render={(props) => <MenuDetails {...props} />}
-      />
-      <Redirect to='/error' />
-    </Switch>
+  <Suspense fallback={<div className="loading" />}>
+    <Routes>
+      <Route path={`/`} element={<Menus />} />
+      <Route path={`:menuId`} element={<MenuDetails />} />
+      <Route element={<Navigate to="/error" />} />
+    </Routes>
   </Suspense>
 );
 export default Menu;

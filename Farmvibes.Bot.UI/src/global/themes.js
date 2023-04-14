@@ -1,16 +1,17 @@
 import React from "react";
 import {
   DefaultTheme,
-  DarkTheme,
   TeamsTheme,
   WordTheme,
 } from "@fluentui/theme-samples";
-import { ThemeProvider, CommandBarButton } from "@fluentui/react";
+import { ThemeProvider } from "@fluentui/react";
+import { Button } from "@fluentui/react-northstar";
 import { useLocalStorage } from "react-use";
+import { capitaliseSentense } from "helpers/utils";
 
 export const themes = {
   default: DefaultTheme,
-  dark: DarkTheme,
+  // dark: DarkTheme,
   teams: TeamsTheme,
   word: WordTheme,
 };
@@ -40,25 +41,16 @@ export function DynamicThemeProvider({ children }) {
   );
 }
 
-export function ThemeToggle({ as: ButtonComponent }) {
+export function ThemeToggle() {
   const { theme, changeTheme } = useTheme();
-  const menuItems = Object.keys(themes).map((key) => ({
-    key,
-    text: key,
-    canCheck: true,
-    checked: theme === key,
-    onClick: () => changeTheme(key),
-  }));
-
-  return (
-    <ButtonComponent
-      menuProps={{ shouldFocusOnMount: true, items: menuItems }}
-      iconProps={{ iconName: "Color" }}
-      iconOnly
-    ></ButtonComponent>
-  );
+  return Object.keys(themes).map((key) => (
+    <Button
+      text
+      key={key}
+      content={capitaliseSentense(key)}
+      primary={theme === key}
+      flat
+      onClick={() => changeTheme(key)}
+    />
+  ));
 }
-
-ThemeToggle.defaultProps = {
-  as: CommandBarButton,
-};

@@ -23,6 +23,7 @@ export const MenuItems = React.memo(
         ariaLabel={ariaLabel}
         primaryGroupAriaLabel={primaryGroupAriaLabel}
         farItemsGroupAriaLabel={farItemsGroupAriaLabel}
+        splitButtonAriaLabel={"More New options"}
         buttonAs={buttonAs}
         onRenderMenuList={onMenuRender}
         styles={{ ...{ root: { background: "transparent" } }, ...styles }}

@@ -7,39 +7,92 @@ import {
   Button,
   Divider,
   pxToRem,
+  Loader,
+  EditIcon,
 } from "@fluentui/react-northstar";
 import { DynamicForm } from "components/forms";
-import { addService } from "global/defaultValues";
-import { useTheme, Pivot, PivotItem } from "@fluentui/react";
-import { getFromStorage } from "helpers/utils";
+import { translationsDelay } from "global/defaultValues";
+import { useTheme, Pivot, PivotItem, Overlay } from "@fluentui/react";
+import { connect } from "react-redux";
+import { resetServiceObj, updateServiceObj } from "redux/actions";
+import { capitaliseSentense, validateForm } from "helpers/utils";
+import { useIntl } from "react-intl";
 
-export const ServiceForm = ({
+const ServiceForm = ({
   action,
-  inputValues,
   serviceTypes,
   updateValues,
+  serviceObj,
+  updateServiceObjAction,
   btnLabel,
+  panelDismiss,
 }) => {
   const { palette } = useTheme();
+  const intl = useIntl();
   const [values, setValues] = React.useState({});
+  const [blockSubmit, setBlockSubmit] = React.useState(false);
+  const [loaderLabel, setLoaderLabel] = React.useState(
+    intl.formatMessage({ id: "general.loading" }, { subject: "" })
+  );
+  const addService = [
+    {
+      name: intl.formatMessage({ id: "general.name" }),
+      key: "name",
+      required: true,
+      length: 50,
+      type: "string",
+      placeholder: intl.formatMessage({
+        id: "service.placeholder.description",
+      }),
+      translatable: true,
+      disabled: false,
+      icon: <EditIcon outline />,
+      variant: "northstar",
+      styles: { fontSize: "16px", fontWeight: "400" },
+      inverted: true,
+    },
+  ];
   const updateLocalValues = (data) => {
     let output = {};
     setValues((prev) => {
       output = { ...prev, ...data };
       return output;
     });
-    updateValues(output);
+    updateServiceObjAction(output);
+  };
+  const preventSubmit = (status, message = "") => {
+    setBlockSubmit(status);
+    setLoaderLabel(message);
   };
   React.useEffect(() => {
-    if (Object.keys(inputValues).length > Object.keys(values).length) {
-      setValues(inputValues);
+    if (Object.keys(serviceObj).length > Object.keys(values).length) {
+      setValues(serviceObj);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  React.useEffect(() => {
+    updateValues(values);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values]);
+
   return (
-    <>
-      <Flex gap='gap.large'>
+    <form
+      onSubmit={(e) => {
+        let hasErrors = validateForm(e);
+        e.preventDefault();
+        if (!hasErrors) action();
+      }}
+      style={{ width: "100%" }}
+    >
+      {blockSubmit && (
+        <Overlay className={"loader"}>
+          <Loader label={loaderLabel} size="largest" />
+        </Overlay>
+      )}
+      <Flex gap="gap.large">
         <Avatar
-          size='largest'
+          size="largest"
           variables={{ iconBackgroundColor: palette.neutralTertiary }}
           icon={
             <AddIcon
@@ -52,87 +105,56 @@ export const ServiceForm = ({
             inputs={addService}
             inputValues={values}
             valuesChanged={updateLocalValues}
+            preventSubmit={preventSubmit}
           />
         </div>
       </Flex>
-      <Flex space='between' style={{ marginTop: pxToRem(40) }}>
-        <Text content={"Type of service"} color='brand' weight='semibold' />
-        <Flex gap='gap.small'>
+      <Flex space="between" style={{ marginTop: pxToRem(40) }} fill>
+        <Flex gap="gap.small">
           <DynamicForm
             inputs={[
               {
                 name: "type",
                 key: "type",
                 required: true,
-                type: "dropdown",
+                type: "combo",
+                variant: "northstar",
                 translatable: false,
                 disabled: false,
                 options: serviceTypes,
-                styles: {
-                  dropdown: {
-                    width: 140,
-                  },
-                  title: {
-                    borderColor: palette.themePrimary,
-                    backgroundColor: palette.themePrimary,
-                    color: palette.white,
-                    selectors: {
-                      ":hover": {
-                        background: palette.themeSecondary,
-                        color: palette.white,
-                      },
-                    },
-                  },
-                  dropdownItemsWrapper: {
-                    backgroundColor: palette.themePrimary,
-                    selectors: {
-                      ":hover": {
-                        background: palette.themeSecondary,
-                        color: palette.white,
-                      },
-                    },
-                  },
-                  dropdownItem: {
-                    color: palette.white,
-                    selectors: {
-                      ":hover": {
-                        background: palette.themeSecondary,
-                        color: palette.white,
-                      },
-                      ":focus": {
-                        background: palette.themeSecondary,
-                        color: palette.white,
-                      },
-                    },
-                  },
-                  caretDown: {
-                    color: palette.white,
-                    selectors: {
-                      ":hover": {
-                        color: palette.white,
-                      },
-                    },
-                  },
-                },
+                label: (
+                  <Text
+                    content={intl.formatMessage({ id: "service.types" })}
+                    color="brand"
+                    weight="semibold"
+                  />
+                ),
               },
             ]}
-            inputValues={values}
+            inputValues={serviceObj}
             valuesChanged={updateLocalValues}
+            preventSubmit={preventSubmit}
           />
         </Flex>
       </Flex>
-      <Flex gap='gap.large'>
+      <Flex gap="gap.large">
         <Pivot
-          aria-label='Content management tabs'
+          aria-label={intl.formatMessage({ id: "content.management.tabs" })}
           style={{ marginTop: pxToRem(20) }}
         >
           <PivotItem
-            headerText='Messages'
+            headerText={intl.formatMessage(
+              { id: "content.messages.count" },
+              { count: "" }
+            )}
             headerButtonProps={{
               "data-order": 1,
-              "data-title": "Service content",
+              "data-title": `${capitaliseSentense(
+                intl.formatMessage({ id: "service" }),
+                { count: 1 }
+              )} ${intl.formatMessage({ id: "content" }, { count: 1 })}`,
             }}
-            key='content'
+            key="content"
             style={{ paddingTop: pxToRem(10) }}
           >
             <DynamicForm
@@ -143,8 +165,12 @@ export const ServiceForm = ({
                   required: true,
                   length: 300,
                   type: "richtext",
-                  label: "Service introduction",
-                  hint: "Provide introductory message or guide for user when they begin interacting with the service.",
+                  label: intl.formatMessage({
+                    id: "service.form.introduction",
+                  }),
+                  hint: intl.formatMessage({
+                    id: "service.form.introduction.hint",
+                  }),
                   translatable: true,
                 },
                 {
@@ -153,28 +179,33 @@ export const ServiceForm = ({
                   required: true,
                   length: 300,
                   type: "richtext",
-                  label: "Completion message",
-                  hint: "The user will see this message when they conclude interaction with this service.",
+                  label: intl.formatMessage({
+                    id: "service.form.conclusion",
+                  }),
+                  hint: intl.formatMessage({
+                    id: "service.form.conclusion.hint",
+                  }),
                   translatable: true,
                 },
               ]}
-              inputValues={values}
+              inputValues={serviceObj}
               valuesChanged={updateLocalValues}
+              preventSubmit={preventSubmit}
             />
           </PivotItem>
           <PivotItem
-            headerText='Settings'
+            headerText={intl.formatMessage({ id: "general.settings" })}
             headerButtonProps={{
               "data-order": 2,
-              "data-title": "Service settings",
+              "data-title": intl.formatMessage({ id: "general.settings" }),
             }}
-            key='settings'
+            key="settings"
             style={{ paddingTop: pxToRem(20) }}
           >
             <Text
-              content={"Configure your service"}
-              color='brand'
-              weight='semibold'
+              content={intl.formatMessage({ id: "service.configure" })}
+              color="brand"
+              weight="semibold"
               style={{ marginTop: "40px" }}
             />
             <DynamicForm
@@ -184,15 +215,25 @@ export const ServiceForm = ({
                   key: "singleAccess",
                   required: false,
                   type: "boolean",
-                  label: "User limited to only one interaction?",
+                  label: intl.formatMessage({
+                    id: "service.interaction.limited",
+                  }),
                   translatable: false,
                   checkedValue: values.hasOwnProperty("singleAccess")
                     ? values.singleAccess.toString()
                     : "false",
                   variant: "northstar",
                   options: [
-                    { key: 1, label: "Yes", value: "true" },
-                    { key: 2, label: "No", value: "false" },
+                    {
+                      key: 1,
+                      label: intl.formatMessage({ id: "general.yes" }),
+                      value: "true",
+                    },
+                    {
+                      key: 2,
+                      label: intl.formatMessage({ id: "general.no" }),
+                      value: "false",
+                    },
                   ],
                 },
                 {
@@ -200,71 +241,67 @@ export const ServiceForm = ({
                   key: "backAfterCompletion",
                   required: false,
                   type: "boolean",
-                  label: "Allow user to go back to service after interaction?",
+                  label: intl.formatMessage({
+                    id: "service.interaction.after.completion",
+                  }),
                   translatable: false,
                   checkedValue: values.hasOwnProperty("backAfterCompletion")
                     ? values.backAfterCompletion.toString()
                     : "false",
                   options: [
-                    { key: 1, label: "Yes", value: "true" },
-                    { key: 2, label: "No", value: "false" },
+                    {
+                      key: 1,
+                      label: intl.formatMessage({ id: "general.yes" }),
+                      value: "true",
+                    },
+                    {
+                      key: 2,
+                      label: intl.formatMessage({ id: "general.no" }),
+                      value: "false",
+                    },
                   ],
                   variant: "northstar",
                 },
               ]}
               inputValues={values}
               valuesChanged={updateLocalValues}
+              preventSubmit={preventSubmit}
             />
-          </PivotItem>
-          <PivotItem
-            headerText='Filters'
-            headerButtonProps={{
-              "data-order": 3,
-              "data-title": "Service filters",
-            }}
-            key='filters'
-            style={{ paddingTop: pxToRem(20) }}
-          >
-            <Text
-              content={"Channels"}
-              color='brand'
-              weight='semibold'
-              style={{ marginTop: "40px" }}
-            />
-            <Flex space='between' style={{ marginTop: "20px" }}>
-              <Flex gap='gap.small'>
-                <DynamicForm
-                  inputs={[
-                    {
-                      name: "channel",
-                      key: "channel",
-                      required: true,
-                      type: "multiple-choice",
-                      translatable: false,
-                      disabled: false,
-                      variant: "northstar",
-                      options: getFromStorage("channels").map((channel) => {
-                        return { key: channel.name, label: channel.name };
-                      }),
-                    },
-                  ]}
-                  inputValues={values}
-                  valuesChanged={updateLocalValues}
-                />
-              </Flex>
-            </Flex>
           </PivotItem>
         </Pivot>
       </Flex>
       <Divider style={{ marginTop: "40px" }} />
-      <Button
-        content={btnLabel}
-        style={{ marginTop: "10px" }}
-        primary
-        size='medium'
-        fluid
-        onClick={() => action()}
-      />
-    </>
+      <Flex space="between" gap="gap.large" hAlign="end" vAlign="end">
+        <Button
+          content={btnLabel}
+          primary
+          onMouseDown={() => {
+            preventSubmit(
+              true,
+              intl.formatMessage({ id: "general.await.persist" })
+            );
+            setTimeout(() => action(), translationsDelay);
+          }}
+          disabled={blockSubmit}
+        />
+        <Button
+          default
+          content={intl.formatMessage({ id: "general.cancel" })}
+          onMouseDown={() => {
+            panelDismiss();
+          }}
+        />
+      </Flex>
+    </form>
   );
 };
+
+const mapStateToProps = ({ serviceReducer }) => {
+  const { serviceObj, loading } = serviceReducer;
+  return { serviceObj, loading };
+};
+
+export default connect(mapStateToProps, {
+  resetServiceObjAction: resetServiceObj,
+  updateServiceObjAction: updateServiceObj,
+})(ServiceForm);

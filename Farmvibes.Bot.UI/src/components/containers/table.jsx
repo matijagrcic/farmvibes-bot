@@ -10,11 +10,12 @@ import {
   IconButton,
   MarqueeSelection,
   mergeStyleSets,
-  TextField,
   Announced,
 } from "@fluentui/react";
 import { MenuItems, TableHeader } from "components/containers";
 import { itemsPerPage } from "global/defaultValues";
+import { includesText } from "helpers/utils";
+import { useIntl } from "react-intl";
 
 const classNames = mergeStyleSets({
   fileIconHeaderIcon: {
@@ -52,19 +53,12 @@ const classNames = mergeStyleSets({
     marginBottom: "20px",
   },
 });
-const controlStyles = {
-  root: {
-    margin: "0 30px 20px 0",
-    maxWidth: "300px",
-  },
-};
 
 export const Table = React.memo(
   ({
     cols,
     items,
     isCompactMode,
-    locale,
     itemInvoked,
     itemRemove,
     menuActions,
@@ -76,10 +70,15 @@ export const Table = React.memo(
     additionalActions = [],
     evaluateAdditionalActions,
     recordFilters = {},
+    renderCustomItem,
+    locale,
+    description,
   }) => {
+    const intl = useIntl();
     const [currentPage, setCurrentPage] = React.useState(1);
     const [hasPreviousPage, setHasPreviousPage] = React.useState(false);
     const [hasNextPage, setHasNextPage] = React.useState(false);
+    const [searchQuery, setSearchQuery] = React.useState("");
     const [mainActionMenu, setMainActionMenu] = React.useState(menuActions);
     let selection = Selection;
     selection = new Selection({
@@ -91,15 +90,10 @@ export const Table = React.memo(
 
     const getSelectionDetails = () => {
       const selectionCount = selection.count;
-
-      switch (selectionCount) {
-        case 0:
-          return "No items selected";
-        case 1:
-          return "1 item selected "; /* +  (selection[0]).name */
-        default:
-          return `${selectionCount} items selected`;
-      }
+      return intl.formatMessage(
+        { id: "general.list.selected" },
+        { count: selectionCount }
+      );
     };
 
     const stringFormat = (template, ...args) => {
@@ -109,7 +103,7 @@ export const Table = React.memo(
       return template;
     };
 
-    const changeLocale = (event, code) => {
+    const changeLocale = (_event, code) => {
       localeUpdate(code);
     };
 
@@ -126,53 +120,8 @@ export const Table = React.memo(
     const [records, setRecords] = React.useState([]);
 
     //We need to append action columns
-    const [columns, setColumns] = React.useState([
-      ...cols,
-      {
-        name: "Actions",
-        fieldName: `actions`,
-        key: `actions`,
-        data: "string",
-        isRowHeader: true,
-        isResizable: true,
-        isMultiline: false,
-        minWidth: 180,
-        onRender: (item) => {
-          return (
-            <MenuItems
-              items={[
-                ...additionalActions.map((additionalAction, idx) => {
-                  return {
-                    ...additionalAction,
-                    ...{ onClick: () => evaluateAdditionalActions(item, idx) },
-                  };
-                }),
-                {
-                  key: "edit",
-                  text: "Edit",
-                  iconProps: { iconName: "Edit" },
-                  onClick: () => itemInvoked(item),
-                  iconOnly: true,
-                  buttonStyles: {
-                    root: { background: "transparent" },
-                  },
-                },
-                {
-                  key: "delete",
-                  text: "Delete",
-                  iconProps: { iconName: "Delete" },
-                  iconOnly: true,
-                  onClick: () => itemRemove(item),
-                  buttonStyles: {
-                    root: { background: "transparent" },
-                  },
-                },
-              ]}
-            />
-          );
-        },
-      },
-    ]);
+    const [columns, setColumns] = React.useState([]);
+
     const [selectionDetails, setSelectionDetails] = React.useState(
       getSelectionDetails()
     );
@@ -215,29 +164,89 @@ export const Table = React.memo(
     });
 
     React.useEffect(() => {
+      setColumns([
+        ...cols,
+        {
+          name: intl.formatMessage({ id: "general.actions" }),
+          fieldName: `actions`,
+          key: `actions`,
+          data: "string",
+          isResizable: true,
+          isMultiline: false,
+          minWidth: 180,
+          onRender: (item) => {
+            return (
+              <MenuItems
+                items={[
+                  ...additionalActions.map((additionalAction, idx) => {
+                    return {
+                      ...additionalAction,
+                      ...{
+                        onClick: () => evaluateAdditionalActions(item, idx),
+                      },
+                    };
+                  }),
+                  {
+                    key: "edit",
+                    text: intl.formatMessage(
+                      { id: "general.edit" },
+                      { subject: "" }
+                    ),
+                    iconProps: { iconName: "Edit" },
+                    onClick: () => itemInvoked(item),
+                    buttonStyles: {
+                      root: { background: "transparent" },
+                    },
+                  },
+                  {
+                    key: "delete",
+                    text: intl.formatMessage(
+                      { id: "general.delete" },
+                      { subject: "" }
+                    ),
+                    iconProps: { iconName: "Delete" },
+                    disabled: itemRemove === null,
+                    onClick: () => itemRemove(item),
+                    buttonStyles: {
+                      root: { background: "transparent" },
+                    },
+                  },
+                ]}
+                ariaLabel={intl.formatMessage({
+                  id: "general.actions",
+                })}
+                overflowButtonProps={{
+                  ariaLabel: intl.formatMessage({
+                    id: "general.list.morecommands",
+                  }),
+                }}
+                styles={{
+                  root: {
+                    height: "unset",
+                    padding: "0px 14px 0px 0px",
+                    background: "transparent",
+                  },
+                }}
+              />
+            );
+          },
+        },
+      ]);
+      setSelectionDetails(getSelectionDetails());
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cols]);
+
+    React.useEffect(() => {
       setRecords(() => (items.length > 0 ? [...items] : []));
       if (items.length >= itemsPerPage) setHasNextPage(true);
       else setHasNextPage(false);
     }, [items]);
 
-    const onChangeText = (ev, text) => {
-      setRecords(items.filter((i) => includesText(i, text)) || items);
-    };
-
-    const includesText = (i, text, deep = false) => {
-      return Object.values(i).some((txt) => {
-        if (txt !== null && txt.constructor.name === "Object" && deep)
-          return includesText(txt, text);
-        if (txt !== null && txt.constructor === Array && deep)
-          return (
-            txt.filter((j) => {
-              return includesText(j, text);
-            }).length > 0
-          );
-        if (typeof txt === "string" && txt !== null) {
-          return txt.toLowerCase().indexOf(text.toLowerCase()) > -1;
-        }
-      });
+    const onChangeText = (text) => {
+      setSearchQuery(text);
+      if (text.length > 2)
+        setRecords(items.filter((i) => includesText(i, text, true)) || items);
+      else setRecords(items);
     };
 
     function getKey(item) {
@@ -253,9 +262,10 @@ export const Table = React.memo(
         );
     };
 
-    const renderItemColumn = (item, index, column) => {
+    const renderItemColumn = (item, _index, column) => {
       const fieldContent = item[column.fieldName];
-      if (
+      if (renderCustomItem) renderCustomItem(item, column);
+      else if (
         item.hasOwnProperty("translations") &&
         item.translations.hasOwnProperty(locale) &&
         item.translations[locale].hasOwnProperty(column.key) &&
@@ -278,6 +288,7 @@ export const Table = React.memo(
         if (action.activeCount === undefined) return;
 
         //Let's create a dynamic function to evaluate how many menu options should be disabled / enabled
+        //eslint-disable-next-line no-new-func
         let fn = new Function("count", "return count" + action.activeCount);
         if (fn(count)) updatedMenu[updatedMenu.length - 1]["disabled"] = false;
         else updatedMenu[updatedMenu.length - 1]["disabled"] = true;
@@ -289,10 +300,11 @@ export const Table = React.memo(
     React.useEffect(() => {
       getRecords({
         ...recordFilters,
-        ...{ page: currentPage, itemsPerPage: itemsPerPage },
+        ...{ _page: currentPage, itemsPerPage: itemsPerPage },
       });
       if (currentPage > 1) setHasPreviousPage(true);
       else setHasPreviousPage(false);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage]);
 
     return (
@@ -303,12 +315,11 @@ export const Table = React.memo(
           searchAction={onChangeText}
           changeLocale={changeLocale}
           locale={locale}
+          searchQuery={searchQuery}
+          description={description}
         />
         <Stack horizontal>
           <Stack.Item grow={1}>
-            <Announced
-              message={`Number of items after filter applied: ${records.length}.`}
-            />
             <div className={classNames.selectionDetails}>
               {selectionDetails}
             </div>
@@ -326,7 +337,7 @@ export const Table = React.memo(
                 columns={columns}
                 selectionMode={SelectionMode.multiple}
                 getKey={getKey}
-                setKey='records'
+                setKey="records"
                 layoutMode={DetailsListLayoutMode.justified}
                 isHeaderVisible={true}
                 selection={selection}
@@ -334,38 +345,44 @@ export const Table = React.memo(
                 onRenderItemColumn={renderItemColumn}
                 onItemInvoked={itemInvoked}
                 enterModalSelectionOnTouch={true}
-                ariaLabelForSelectionColumn='Toggle selection'
-                ariaLabelForSelectAllCheckbox='Toggle selection for all items'
-                checkButtonAriaLabel='select row'
+                ariaLabelForSelectionColumn={intl.formatMessage({
+                  id: "general.list.selection.toggle",
+                })}
+                ariaLabelForSelectAllCheckbox={intl.formatMessage({
+                  id: "general.list.selection.toggle.all",
+                })}
+                checkButtonAriaLabel={intl.formatMessage({
+                  id: "general.list.selection.toggle.row.select",
+                })}
                 constrainMode={ConstrainMode.horizontalConstrained}
                 enableShimmer={!records}
-                listProps={{
-                  renderedWindowsAhead: 0,
-                  renderedWindowsBehind: 0,
-                }}
               />
             </MarqueeSelection>
           </Stack.Item>
-          <Stack.Item align='center' style={{ marginTop: 30 }}>
+          <Stack.Item align="center" style={{ marginTop: 30 }}>
             <Stack
               horizontal
               style={{ width: "100%" }}
               tokens={{ childrenGap: "5", padding: "l2" }}
             >
               <IconButton
-                alt='First Page'
                 iconProps={{ iconName: "Rewind" }}
                 disabled={!hasPreviousPage}
                 onClick={loadFirstPage}
+                ariaLabel={intl.formatMessage({
+                  id: "general.pagination.first",
+                })}
               />
               <IconButton
-                alt='Previous Page'
                 iconProps={{ iconName: "Previous" }}
                 disabled={!hasPreviousPage}
                 onClick={loadPreviousPage}
+                ariaLabel={intl.formatMessage({
+                  id: "general.pagination.previous",
+                })}
               />
               <Stack.Item
-                align='center'
+                align="center"
                 style={{ width: "32px", textAlign: "center" }}
               >
                 {stringFormat(
@@ -375,10 +392,12 @@ export const Table = React.memo(
                 )}
               </Stack.Item>
               <IconButton
-                alt='Next Page'
                 iconProps={{ iconName: "Next" }}
                 disabled={!hasNextPage}
                 onClick={loadNextPage}
+                ariaLabel={intl.formatMessage({
+                  id: "general.pagination.next",
+                })}
               />
             </Stack>
           </Stack.Item>

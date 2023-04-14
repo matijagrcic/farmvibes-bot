@@ -1,8 +1,8 @@
 import { DynamicForm } from "components/forms";
-import { addValidationQuestion } from "global/defaultValues";
 import { Dialog, Text } from "@fluentui/react-northstar";
 import { flat, unflatten, addTranslationLocale } from "helpers/utils";
 import * as React from "react";
+import { useIntl } from "react-intl";
 import { useDispatch } from "react-redux";
 import {
   createQuestionValidation,
@@ -18,22 +18,36 @@ export const ValidationDialog = ({
   question,
   toggleValidationDialog,
   loading,
+  serviceId,
 }) => {
   const dispatch = useDispatch();
   let expectedInput = customValues?.expectedInput;
   let flattened = flat(validationAttribute);
-  const valuesChanged = (vals) => {
-    if (expectedInput !== vals.expectedInput) {
-      expectedInput = vals.expectedInput;
-      var values = errorMessages();
-      setValidationValues(values);
-    }
-  };
+  const intl = useIntl();
+  const addValidationQuestion = [
+    {
+      label: intl.formatMessage({ id: "validation.form.user.input" }),
+      name: "expectedInput",
+      key: "expectedInput",
+      type: "string",
+      required: true,
+      translatable: false,
+      variant: "northstar",
+    },
+    {
+      label: intl.formatMessage({ id: "validation.form.error.message" }),
+      name: "errorMessage",
+      key: "errorMessage",
+      type: "string",
+      required: true,
+      translatable: true,
+      variant: "northstar",
+    },
+  ];
 
   const errorMessages = (state) => {
     return {
       ...Object.keys(flattened).reduce((prev, current) => {
-        console.log(prev);
         if (
           current.toLowerCase().indexOf("errormessage") > 0 &&
           state !== "new"
@@ -62,22 +76,43 @@ export const ValidationDialog = ({
   const [validationValues, setValidationValues] = React.useState(() =>
     action === "Update" ? flat(customValues) : errorMessages("new")
   );
+
+  const valuesChanged = (vals) => {
+    if (validationValues["expectedInput"] !== vals.expectedInput) {
+      expectedInput = vals.expectedInput;
+      var values = errorMessages();
+      setValidationValues({ ...validationValues, ...values });
+    } else {
+      setValidationValues({ ...validationValues, ...vals });
+    }
+  };
+
   return (
     <Dialog
-      cancelButton='Cancel'
+      cancelButton={intl.formatMessage({ id: "cancel" })}
       confirmButton={{
-        content: `${action} validation`,
+        content: `${intl.formatMessage({
+          id: action.toLowerCase(),
+        })} ${intl.formatMessage({ id: "validation" }, { count: 1 })}`,
         loading: !loading,
         disabled: !loading,
       }}
       header={
         validationAttribute.hasOwnProperty("translations")
-          ? `Input Validation: ${validationAttribute.translations[locale].description}`
-          : "Add validation"
+          ? intl.formatMessage(
+              { id: "validation.input" },
+              { subject: validationAttribute.translations[locale].description }
+            )
+          : intl.formatMessage(
+              { id: "general.add" },
+              {
+                subject: intl.formatMessage({ id: "validation" }, { count: 1 }),
+              }
+            )
       }
       content={
         <>
-          <Text content='Please specify how you want to verify response to this question.' />
+          <Text content={intl.formatMessage({ id: "validation.prompt" })} />
           <DynamicForm
             inputs={addValidationQuestion}
             reverse={true}
@@ -86,13 +121,13 @@ export const ValidationDialog = ({
           />
         </>
       }
-      size='small'
+      size="small"
       open={dialogOpen}
       onConfirm={() => {
         let payload = {
           ...unflatten(addTranslationLocale(validationValues)),
           ...{
-            question: `/api/questions/${question.id}`,
+            question: `/api/services/${serviceId}/questions/${question.id}`,
             validationAttribute: `/api/validation_attributes/${validationAttribute.id}`,
           },
         };

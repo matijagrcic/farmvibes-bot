@@ -6,34 +6,41 @@ import {
   GET_MENU,
   CREATE_MENU_NODE,
   UPDATE_MENU_NODE,
+  UPDATE_MENU,
   REMOVE_MENU_NODE,
   PUBLISH_MENU,
 } from "../actions";
-import { post, get, patch, remove } from "../../helpers/requests";
+import { post, patch, remove } from "../../helpers/requests";
 
 import {
   getMenus,
   getMenusSuccess,
   getMenusError,
+  getMenuSuccess,
+  getMenuError,
   createMenuError,
   createMenuSuccess,
   createMenuNodeSuccess,
   createMenuNodeError,
   updateMenuNodeError,
   updateMenuNodeSuccess,
+  updateMenuError,
+  updateMenuSuccess,
   removeMenuNodeError,
   removeMenuNodeSuccess,
   publishMenuSuccess,
   publishMenuError,
 } from "./actions";
 
+import { makeListRequest, encodeGroupURI } from "helpers/utils";
+
 function* getMenusItems({ payload }) {
   try {
-    const result = yield call(get, {
-      url: "menu_nodes/full/nodes",
-      params: {
+    let groups = encodeGroupURI("groups", ["uxMenus:read", "translations"]);
+    const result = yield call(makeListRequest, {
+      url: `menu_nodes?${groups}`,
+      options: {
         ...payload,
-        ...{ "groups[]": "translations" },
       },
     });
     yield put(getMenusSuccess(result));
@@ -44,9 +51,9 @@ function* getMenusItems({ payload }) {
 
 function* createMenuItem({ payload }) {
   try {
-    const { menu, history } = payload;
+    const { menu, navigate } = payload;
     const newItem = yield call(async () => await createNewNode(menu));
-    yield put(createMenuSuccess(newItem, history));
+    yield put(createMenuSuccess(newItem, navigate));
   } catch (error) {
     yield put(createMenuError(error));
   }
@@ -64,41 +71,62 @@ function* createMenuNode({ payload }) {
 
 async function createNewNode(node) {
   let url = "menu_nodes";
-  if (node.hasOwnProperty("content")) {
-    if (typeof node.content === "object") {
-      node["contentObj"] = node.content;
-      delete node["content"];
-      url = `${url}/persist`;
-    }
-  }
   return post(url, node)
     .then((result) => result)
     .catch((error) => error);
 }
 
 function* newMenuSuccess({ payload }) {
-  const { menu, history } = payload;
-  yield call(history.push, `details/${menu.id}`);
+  const { menu, navigate } = payload;
+  yield call(navigate, `${menu.id}`, { state: { title: menu.label } });
+}
+
+async function patchNode(payload) {
+  const { node } = payload;
+  return patch(`menu_nodes/${node.node}`, node)
+    .then((result) => result)
+    .catch((error) => error);
 }
 
 function* updateMenuNode({ payload }) {
   try {
-    const { node } = payload;
-    const result = yield call(
-      async () =>
-        await patch(`menu_nodes/${node.node}`, node)
-          .then((result) => result)
-          .catch((error) => error)
-    );
+    const result = yield call(async () => await patchNode(payload));
     yield put(updateMenuNodeSuccess(result));
   } catch (error) {
     yield put(updateMenuNodeError(error));
   }
 }
 
+function* updateMenu({ payload }) {
+  try {
+    let result = yield call(async () => await patchNode(payload));
+    yield put(updateMenuSuccess(result));
+  } catch (error) {
+    yield put(updateMenuError(error));
+  }
+}
+
 function* getMenuNodes({ payload }) {
-  const { menu, history } = payload;
-  yield call(history.push, `details/${menu.id}`);
+  const { menu } = payload;
+  let groups = encodeGroupURI("groups", [
+    "uxMenus:read",
+    "translations",
+    "uxMenus:tree",
+  ]);
+  try {
+    let menuNodes = yield call(
+      async () =>
+        await makeListRequest({
+          url: `menu_nodes?page=1${groups}&${new URLSearchParams(
+            payload
+          ).toString()}&pagination=false&root=${menu}`,
+        }).then((result) => result)
+    );
+
+    yield put(getMenuSuccess(menuNodes));
+  } catch (error) {
+    yield put(getMenuError(error));
+  }
 }
 
 function* removeMenuNode({ payload }) {
@@ -106,7 +134,7 @@ function* removeMenuNode({ payload }) {
     const { node } = payload;
     const newNode = yield call(
       async () =>
-        await remove(`menu_nodes/${node.id}`)
+        await remove(`menu_nodes/${node}`)
           .then((result) => result)
           .catch((error) => error)
     );
@@ -121,7 +149,7 @@ function* publishMenu({ payload }) {
     const { node } = payload;
     const result = yield call(
       async () =>
-        await post(`menu_nodes/publish_menu`, node)
+        await post(`menu_nodes/${node.node}/publish_menu`, node)
           .then((result) => result)
           .catch((error) => error)
     );
@@ -164,6 +192,11 @@ export function* watchUpdateMenuNode() {
   yield takeEvery(UPDATE_MENU_NODE, updateMenuNode);
 }
 
+export function* watchUpdateMenu() {
+  // eslint-disable-next-line no-use-before-define
+  yield takeEvery(UPDATE_MENU, updateMenu);
+}
+
 export function* watchRemoveMenuNode() {
   // eslint-disable-next-line no-use-before-define
   yield takeEvery(REMOVE_MENU_NODE, removeMenuNode);
@@ -181,6 +214,7 @@ export default function* rootSaga() {
   yield all([fork(watchGetMenuNodes)]);
   yield all([fork(watchCreateMenuNode)]);
   yield all([fork(watchUpdateMenuNode)]);
+  yield all([fork(watchUpdateMenu)]);
   yield all([fork(watchRemoveMenuNode)]);
   yield all([fork(watchTogglePublishMenuNode)]);
 }

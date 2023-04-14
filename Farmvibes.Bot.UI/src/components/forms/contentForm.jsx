@@ -6,130 +6,138 @@ import {
   pxToRem,
   Text,
   Divider,
-  FormFieldCustom,
-  Label,
   Button,
-  Accordion,
   Image,
-  Dropdown,
+  Loader,
+  EditIcon,
 } from "@fluentui/react-northstar";
 import { connect } from "react-redux";
-import { Pivot, PivotItem, useTheme, TextField } from "@fluentui/react";
+import { Pivot, PivotItem, useTheme, Overlay } from "@fluentui/react";
 import { ContentContainer } from "components/containers/content";
 import {
   createContent,
   updateContentItem,
+  updateContentTextItem,
+  updateContent,
   createContentItem,
   createMenuNode,
   createMedium,
+  resetContentItem,
 } from "redux/actions";
 import { useDispatch } from "react-redux";
-import { unflatten, addTranslationLocale, serialize } from "helpers/utils";
+import {
+  unflatten,
+  addTranslationLocale,
+  serialize,
+  getPlatformComponents,
+  capitaliseSentense,
+} from "helpers/utils";
+import { post } from "helpers/requests";
 import { DynamicForm } from ".";
-import { addContent } from "global/defaultValues";
+import { useIntl } from "react-intl";
+import { useNodeTypes } from "helpers/utilities/nodeTypes";
 
 const ContentForm = ({
   data,
   createContentAction,
   createContentItemAction,
+  updateContentTextItemAction,
   createMenuNodeAction,
+  resetContentItemAction,
   action,
   activeNode,
-  createMediumAction,
-  mediaError,
   medium,
-  mediaLoading,
+  loading,
+  onPanelDismiss,
 }) => {
   const { palette } = useTheme();
   const dispatch = useDispatch();
+  const { nodeTypes } = useNodeTypes();
+  const intl = useIntl();
   const [contentItems, setContentItems] = React.useState(() => {
     return data.hasOwnProperty("text") ? data.text.length : 1;
   });
-  const defaultUploadPrompt = "Click to upload or drag and drop a file here...";
-  const inputRef = React.createRef();
-  const [imgMessage, setImgMessage] = React.useState(defaultUploadPrompt);
+  const defaultUploadPrompt = intl.formatMessage({
+    id: "general.form.file.uploadprompt",
+  });
+  const [setImgMessage] = React.useState(defaultUploadPrompt);
+  const stateRef = React.useRef();
   const [contentLabel, setContentLabel] = React.useState({});
-  const [imgDescr, setImageDescr] = React.useState("");
-  const [readyToUpload, setReadyToUpload] = React.useState(true);
-  const [thumbnail, setThumbnail] = React.useState(null);
-  const avatarStyle = {
-    root: {
-      background: palette.neutralTertiary,
+  const [setReadyToUpload] = React.useState(true);
+  const [setThumbnail] = React.useState(null);
+  const [blockSubmit, setBlockSubmit] = React.useState(false);
+  const [loaderLabel, setLoaderLabel] = React.useState(
+    intl.formatMessage({ id: "general.loading" }, { subject: "" })
+  );
+  const [channels, setChannels] = React.useState([]);
+  const addContent = [
+    {
+      name: "label",
+      key: "label",
+      required: true,
+      length: 50,
+      type: "string",
+      placeholder: intl.formatMessage({
+        id: "content.placeholder.description",
+      }),
+      translatable: true,
+      disabled: false,
+      icon: <EditIcon outline />,
+      variant: "northstar",
+      styles: { fontSize: "16px", fontWeight: "400" },
+      inverted: true,
     },
-  };
+  ];
 
-  const onAddImage = () => {
-    inputRef && inputRef.current && inputRef.current.click();
-  };
+  stateRef.current = data;
 
   const updateContentLabel = (labels) => {
     setContentLabel(labels);
     updateContentItem(labels);
-  };
-  const onUploadFileChange = (event) => {
-    let selectedFile = null;
-    if (event.hasOwnProperty("dataTransfer")) {
-      selectedFile = event.dataTransfer.files[0];
-    } else {
-      const target = event.target;
-      selectedFile = target.files && target.files[0];
-    }
-
-    event.stopPropagation();
-    event.preventDefault();
-    let imgSize = 0;
-    switch (selectedFile.size) {
-      case (value) => value > 100000:
-        imgSize = `${(selectedFile.size / Math.pow(1024, 2)).toFixed(2)} MB`;
-        break;
-
-      default:
-        imgSize = `${(selectedFile.size / Math.pow(1024, 1)).toFixed(2)} KB`;
-        break;
-    }
-    setImgMessage(`Ready to upload: ${selectedFile.name} (${imgSize})`);
-    setImageDescr(
-      selectedFile.name.substring(0, selectedFile.name.lastIndexOf("."))
-    );
-    setReadyToUpload(false);
   };
 
   const addContentItems = () => {
     setContentItems((prev) => prev + 1);
   };
 
-  const reviewChannelStatus = (channelId, container) => {
+  const reviewChannelStatus = (channelId, container, disable = false) => {
     let update = [];
-    data.text.forEach((item) => {
+    let removeContainer = false;
+    data.text.reduce((arr, item) => {
+      if (disable) {
+        item["channels"] = item.channels.filter((c) => c.id !== channelId);
+        (
+          item["unavailableChannels"] || (item["unavailableChannels"] = [])
+        ).push(channelId);
+      }
       if (item.containerIndex === container) {
-        //For this container, we would also like to know whether we are to remove container because all channels are off.
-        let channelVals = item.channels.map((channel) => {
-          if (channel.id === channelId) {
-            return { ...channel, ...{ status: !channel.status } };
-          }
-          return channel;
-        });
-        update.push({ ...item, ...{ channels: channelVals } });
-      } else update.push(item);
-    });
-    //Let's try to make sure we have no container with unselected channels
-    const remainingContainers = update.reduce((acc, current) => {
-      if (!current.channels.every((channel) => channel.status === false))
-        acc.push({ ...current, ...{ containerIndex: acc.length } });
-      return acc;
+        //Let's try to make sure we have no container with unselected channels
+        if (!item.channels.some((c) => c.status)) {
+          data.text[0].channels = data.text[0].channels.map((c) =>
+            c.id === channelId ? { ...c, ...{ status: !c.status } } : c
+          );
+          //We also need to remove the container form the values we have
+          removeContainer = true;
+        }
+        update.push(item);
+        arr.push(item);
+      } else {
+        update.push(item);
+        arr.push(item);
+      }
+      return arr;
     }, []);
-    if (remainingContainers.length !== update.length) {
-      setContentItems(remainingContainers.length);
-      dispatch(updateContentItem(remainingContainers));
-    } else {
-      dispatch(updateContentItem(update));
-    }
+
+    if (removeContainer) data.text.splice(container, 1);
+    setContentItems(update.length);
+    dispatch(updateContentItem(update));
   };
 
   const prepareContentForPersist = () => {
     //We need to format the object into API format.
     return data.text.map((item) => {
       let contentType = false;
+
       const channels = item.channels.reduce((result, channel) => {
         if (channel.status) {
           if (channel.isRichText === false) contentType = true;
@@ -163,14 +171,23 @@ const ContentForm = ({
     });
   };
 
+  const preventSubmit = (status, message = "") => {
+    setBlockSubmit(status);
+    setLoaderLabel(message);
+  };
+
   React.useEffect(() => {
-    // setImgMessage("Drag and drop a file here...");
+    getPlatformComponents("channels", "channels").then((result) => {
+      setChannels(result);
+    });
   }, []);
 
   React.useEffect(() => {
     if (medium !== undefined && medium.hasOwnProperty("id")) {
       setReadyToUpload(true);
-      setImgMessage("Click to upload or drag and drop a file here...");
+      setImgMessage(
+        intl.formatMessage({ id: "general.form.file.uploadprompt" })
+      );
       data.media = [`/api/media/${medium.id}`];
       if (data.hasOwnProperty("media")) {
         setThumbnail(
@@ -187,7 +204,8 @@ const ContentForm = ({
         );
       }
     }
-  }, [medium]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [medium, data]);
 
   const renderContentRow = (count) => {
     let containers = [];
@@ -200,244 +218,201 @@ const ContentForm = ({
           updateChannelStatus={reviewChannelStatus}
           containerIndex={index}
           preset={data}
+          channels={channels}
+          preventSubmit={preventSubmit}
         />
       );
     }
     return containers;
   };
 
-  const imagePanels = [
-    {
-      key: "new",
-      title: `Upload new image`,
-      content: (
-        <>
-          <FormFieldCustom
-            style={{
-              border: "1px solid #2A2A2A",
-              minHeight: "6em",
-              padding: "0.5em",
-              backgroundColor: palette.neutralLight,
-              marginTop: pxToRem(20),
-              justifyContent: "center",
-              display: "flex",
-            }}
-            onClick={onAddImage}
-            onDragOver={(event) => {
-              event.preventDefault(); //preventing from default behaviour
-              setImgMessage("Drop file here to upload...");
-              event.target.classList.add("active");
-            }}
-            onDragLeave={(event) => {
-              event.preventDefault(); //preventing from default behaviour
-              event.target.classList.remove("active");
-              setImgMessage(defaultUploadPrompt);
-            }}
-            onDrop={(event) => {
-              event.preventDefault(); //preventing from default behaviour
-              let validExtensions = [
-                "image/jpeg",
-                "image/jpg",
-                "image/png",
-                "image/gif",
-                "image/webp",
-              ];
-              if (validExtensions.includes(event.dataTransfer.files[0].type)) {
-                onUploadFileChange(event);
-              } else {
-                setImgMessage(
-                  "You can only upload jpeg, png, gif or webp formats"
-                );
-              }
-            }}
-          >
-            <input
-              ref={inputRef}
-              type='file'
-              accept='.png, .jpeg, .jpg, .bmp'
-              onChange={onUploadFileChange}
-              style={{ display: "none" }}
-            />
-            <Text
-              content={imgMessage}
-              style={{
-                verticalAlign: "center",
-                alignItems: "center",
-                justifyContent: "center",
-                display: "flex",
-              }}
-            />
-          </FormFieldCustom>
-          <TextField
-            label='Description'
-            value={imgDescr}
-            onChange={(event) => setImageDescr(event.currentTarget.value)}
-          />
-          <Button
-            content={mediaLoading ? "Processing" : "Upload"}
-            disabled={readyToUpload || mediaLoading}
-            fluid
-            primary
-            loading={mediaLoading}
-            style={{
-              marginTop: pxToRem(20),
-            }}
-            onClick={() => {
-              const upload = new FormData();
-              upload.append("file", inputRef.current.files[0]);
-              upload.append("description", imgDescr);
-              createMediumAction(upload);
-            }}
-          />
-        </>
-      ),
-    },
-    {
-      key: "existing",
-      title: "Select existing image",
-      content: (
-        <Dropdown
-          search
-          items={[]}
-          placeholder='Start typing image description'
-          noResultsMessage="We couldn't find any matches."
-          getA11ySelectionMessage={{
-            onAdd: (item) => `${item} has been selected.`,
-          }}
-        />
-      ),
-    },
-  ];
-
   return (
     <>
-      <Flex gap='gap.large'>
-        <Avatar
-          size='largest'
-          variables={{ iconBackgroundColor: palette.neutralTertiary }}
-          icon={
-            <AddIcon
-              variables={{ iconBackgroundColor: palette.neutralTertiary }}
-            />
-          }
-        />
-        <div style={{ flexGrow: 1 }}>
-          <DynamicForm
-            inputs={addContent}
-            formWidth='100%'
-            valuesChanged={updateContentLabel}
-            inputValues={
-              action.includes("create") && !action.includes("child")
-                ? contentLabel
-                : data
+      {blockSubmit && (
+        <Overlay className={"loader"}>
+          <Loader label={loaderLabel} size="largest" />
+        </Overlay>
+      )}
+
+      <form onSubmit={(e) => e.preventDefault()} style={{ width: "100%" }}>
+        <Flex gap="gap.large">
+          <Avatar
+            size="largest"
+            variables={{ iconBackgroundColor: palette.neutralTertiary }}
+            icon={
+              <AddIcon
+                variables={{ iconBackgroundColor: palette.neutralTertiary }}
+              />
             }
           />
-        </div>
-      </Flex>
-      <Pivot
-        aria-label='Content management tabs'
-        style={{ marginTop: pxToRem(40) }}
-      >
-        <PivotItem
-          headerText='Content'
-          headerButtonProps={{
-            "data-order": 1,
-            "data-title": "Content management",
-          }}
-          key='content'
-        >
-          <Flex gap='gap.small'>
-            <Text
-              size='medium'
-              weight='semibold'
-              content={`Messages (${contentItems})`}
-              style={{
-                marginTop: pxToRem(20),
-                marginBottom: pxToRem(10),
-                color: palette.themePrimary,
-              }}
+          <div style={{ flexGrow: 1 }}>
+            <DynamicForm
+              inputs={
+                action.includes("edit") || action.includes("child")
+                  ? addContent.map((f) =>
+                      f.name === "label" ? { ...f, disabled: true } : f
+                    )
+                  : addContent
+              }
+              formWidth="100%"
+              valuesChanged={updateContentLabel}
+              preventSubmit={preventSubmit}
+              inputValues={
+                action.includes("create") && !action.includes("child")
+                  ? contentLabel
+                  : data
+              }
             />
-          </Flex>
-          {renderContentRow(contentItems)}
-        </PivotItem>
-        <PivotItem headerText='Filters' key='content'>
-          <Label>Filters</Label>
-        </PivotItem>
-        <PivotItem headerText='Media' key='media'>
-          {thumbnail}
-          <Accordion panels={imagePanels} exclusive expanded />
-        </PivotItem>
-      </Pivot>
-      <Divider
-        color='grey'
-        style={{ margin: `${pxToRem(10)} 0px ${pxToRem(20)}` }}
-      />
-      <Flex space='between' gap='gap.large' hAlign='end' vAlign='end'>
-        <Button
-          flat={true}
-          primary
-          content='Save content'
-          onClick={() => {
-            //We need translations in API expected format
-            let translations = unflatten(addTranslationLocale(contentLabel));
-            let variants = prepareContentForPersist();
-            //Then persist.
-            switch (action) {
-              case "edit-text":
-                createContentItemAction({
-                  contentTextVariants: variants,
-                  raw: data.text,
-                  content: data.id,
-                  media: data.media,
-                });
-                break;
+          </div>
+        </Flex>
+        <Pivot
+          aria-label={intl.formatMessage({ id: "content.management.tabs" })}
+          style={{ marginTop: pxToRem(40) }}
+        >
+          <PivotItem
+            headerText={capitaliseSentense(
+              intl.formatMessage({ id: "content" }, { count: 1 })
+            )}
+            headerButtonProps={{
+              "data-order": 1,
+              "data-title": intl.formatMessage({ id: "content.management" }),
+            }}
+            key="content"
+          >
+            <Flex gap="gap.small">
+              <Text
+                size="medium"
+                weight="semibold"
+                content={intl.formatMessage(
+                  { id: "content.messages.count" },
+                  { count: contentItems }
+                )}
+                style={{
+                  marginTop: pxToRem(20),
+                  marginBottom: pxToRem(10),
+                  color: palette.themePrimary,
+                }}
+              />
+            </Flex>
+            {renderContentRow(contentItems)}
+          </PivotItem>
+        </Pivot>
+        <Divider
+          color="grey"
+          style={{ margin: `${pxToRem(10)} 0px ${pxToRem(20)}` }}
+        />
+        <Flex space="between" gap="gap.large" hAlign="end" vAlign="end">
+          <Button
+            flat
+            primary
+            content={intl.formatMessage(
+              { id: "general.save" },
+              { subject: intl.formatMessage({ id: "content" }, { count: 1 }) }
+            )}
+            className="save-content-btn"
+            disabled={blockSubmit}
+            onMouseDown={() => {
+              setTimeout(() => {
+                //Show loader and disable submit button
+                preventSubmit(
+                  true,
+                  action.includes("edit")
+                    ? intl.formatMessage(
+                        { id: "general.updating" },
+                        {
+                          subject: intl.formatMessage(
+                            { id: "content" },
+                            { count: 1 }
+                          ),
+                        }
+                      )
+                    : intl.formatMessage(
+                        { id: "general.creating" },
+                        {
+                          subject: intl.formatMessage(
+                            { id: "content" },
+                            { count: 1 }
+                          ),
+                        }
+                      )
+                );
 
-              case "create-child":
-                createContentItemAction({
-                  contentTextVariants: variants,
-                  raw: data.text,
-                  content: data.id,
-                  media: data.media,
-                });
-                break;
+                //We need translations in API expected format
+                let translations = unflatten(
+                  addTranslationLocale(contentLabel)
+                );
+                let variants = prepareContentForPersist();
+                //Then persist.
+                switch (action) {
+                  case "edit-text":
+                    updateContentTextItemAction({
+                      contentTextVariants: variants,
+                      raw: data.text,
+                      content: `/api/contents/${data.content}`,
+                      id: data.id,
+                      media: data.media,
+                    });
+                    break;
 
-              case "create-content-node":
-                createMenuNodeAction({
-                  ...translations,
-                  ...{
-                    type: `/api/menu_node_types/3`,
-                    parent: `/api/menu_nodes/${activeNode.id}`,
-                    media: data.media,
-                    content: {
+                  case "create-child":
+                    createContentItemAction({
+                      contentTextVariants: variants,
+                      raw: data.text,
+                      content: `/api/contents/${data.content}`,
+                      media: data.media,
+                    });
+                    break;
+
+                  case "create-content-node":
+                    post("contents", {
                       ...translations,
+                      media: data.media,
                       text: [
                         {
                           contentTextVariants: variants,
                           raw: data.text,
                         },
                       ],
-                    },
-                  },
-                });
-                break;
-              default:
-                createContentAction({
-                  ...translations,
-                  media: data.media,
-                  text: [
-                    {
-                      contentTextVariants: variants,
-                      raw: data.text,
-                    },
-                  ],
-                });
-                break;
-            }
-            setTimeout(() => window.location.reload(false), 2000);
-          }}
-        />{" "}
-        <Button default content='Cancel' />
-      </Flex>
+                    }).then((response) =>
+                      createMenuNodeAction({
+                        ...translations,
+                        ...{
+                          type: `/api/menu_node_types/${
+                            nodeTypes.filter((t) => t.name === "content")[0].id
+                          }`,
+                          content: `/api/contents/${response.id}`,
+                          parent: `/api/menu_nodes/${activeNode.id}`,
+                        },
+                      })
+                    );
+
+                    break;
+                  default:
+                    createContentAction({
+                      ...translations,
+                      media: data.media,
+                      text: [
+                        {
+                          contentTextVariants: variants,
+                          raw: data.text,
+                        },
+                      ],
+                    });
+                    break;
+                }
+                //Hide loader
+                dispatch(resetContentItemAction());
+                loading = { loading };
+              });
+            }}
+          />{" "}
+          <Button
+            default
+            content="Cancel"
+            onMouseDown={() => onPanelDismiss()}
+          />
+        </Flex>
+      </form>
     </>
   );
 };
@@ -450,8 +425,10 @@ const mapStateToProps = ({ contentReducer, mediaReducer }) => {
 
 export default connect(mapStateToProps, {
   createContentAction: createContent,
-  updateContentItemAction: updateContentItem,
+  updateContentAction: updateContent,
+  updateContentTextItemAction: updateContentTextItem,
   createContentItemAction: createContentItem,
   createMenuNodeAction: createMenuNode,
   createMediumAction: createMedium,
+  resetContentItemAction: resetContentItem,
 })(ContentForm);

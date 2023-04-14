@@ -1,55 +1,55 @@
-import {
-  Dialog,
-  Text,
-  Button,
-  Dropdown,
-  Loader,
-} from "@fluentui/react-northstar";
-import { DynamicForm } from "components/forms";
 import * as React from "react";
-import { useDispatch } from "react-redux";
-import { getFromStorage, makeListRequest } from "helpers/utils";
-import { select } from "redux-saga/effects";
+import { Dialog, Loader } from "@fluentui/react-northstar";
+import { DynamicDropdowns } from "../forms";
+import { capitaliseSentense, makeListRequest } from "helpers/utils";
+import { useIntl } from "react-intl";
 export const ConstraintsDialog = ({
-  action,
-  locale,
   dialogOpen,
-  question,
   toggleConstraintsDialog,
+  preset,
+  action,
+  iri,
+  title,
+  url,
+  intent,
 }) => {
-  const dispatch = useDispatch();
   const [loading, setLoading] = React.useState(false);
-  const [values, setValues] = React.useState([]);
+  const [values, setValues] = React.useState(() =>
+    preset.length > 0 ? preset : []
+  );
   const [selectInputs, setSelectInputs] = React.useState([]);
-  const [filters, setFilters] = React.useState([]);
   const [currentConstraint, setCurrentConstraint] = React.useState("");
+  const intl = useIntl();
 
   const getConstraints = (data) => {
-    const { path, propertyValue, propertyName, level, constraint, paths } =
-      data;
+    const {
+      path,
+      propertyValue,
+      propertyName,
+      propertyDescription,
+      level,
+      constraint,
+      paths,
+    } = data;
     setLoading(true);
     makeListRequest({
       url: path,
-      options:
-        path === `constraints`
-          ? {
-              "groups[]": "constraints:read",
-            }
-          : {
-              "groups[]": "translations",
-            },
+      options: {
+        "groups[]": "translations",
+      },
     }).then((result) => {
       let options = result.map((option) => {
         return {
-          header: option[propertyName],
-          content: option.description,
+          header: capitaliseSentense(option[propertyName]),
+          content: option[propertyDescription],
           key: option[propertyValue],
+          entity: option.entity,
           paths: option.dataPaths,
           constraint,
           level: level + 1,
-          selected: false,
         };
       });
+
       if (level === 0 && !constraint) {
         setSelectInputs((prev) => [
           ...prev,
@@ -58,7 +58,15 @@ export const ConstraintsDialog = ({
             key: `select-level-${level}`,
             options,
             constraint, //This is the main dropdown so has no parent contraint
-            label: `Select filter`,
+            label: intl.formatMessage(
+              { id: "general.form.select" },
+              {
+                subject: intl.formatMessage(
+                  { id: "constraints" },
+                  { count: 1 }
+                ),
+              }
+            ),
             paths: null,
             isLast: false,
           },
@@ -68,109 +76,113 @@ export const ConstraintsDialog = ({
         if (paths) {
           paths.forEach((pathData, idx) => {
             let pathLength = paths.length;
-            let isLast = pathData == paths[pathLength - 1];
-
+            let isLast = pathData === paths[pathLength - 1];
             setSelectInputs((prev) => [
               ...prev,
               {
                 level: level + idx + 1,
                 key: `select-${constraint}-${level + idx + 1}`,
-                options: options,
+                options: idx === level ? options : [],
                 constraint: constraint,
                 label: isLast
-                  ? `Specify filters`
-                  : `Select available ${constraint}`,
+                  ? intl.formatMessage({ id: "constraints.filters.specify" })
+                  : intl.formatMessage({
+                      id: "constraints.filters.select available",
+                      values: { constraint: constraint },
+                    }),
                 paths: isLast ? null : idx === 0 ? paths[idx + 1] : pathData,
                 isLast,
               },
             ]);
           });
         } else {
-          //We're somewhere in cascading list of selects but not top
-          let updated = selectInputs
-            .filter(
+          if (
+            selectInputs.filter(
               (select) =>
-                select.constraint == constraint && select.level == level + 1
-            )
-            .map((child) => {
-              if (child.level === level + 1) {
-                child.options = options;
-              }
-              return child;
-            });
-
-          setSelectInputs(
-            selectInputs.map((select) => {
-              return select.key === updated.key ? updated : select;
-            })
-          );
+                select.constraint === constraint &&
+                select.key === `select-${constraint}-${level + 1}`
+            ).length > 0
+          ) {
+            updateSelects(constraint, level, options);
+          } else {
+            setSelectInputs((prev) => [
+              ...prev,
+              {
+                level: level + 1,
+                key: `select-${constraint}-${level + 1}`,
+                options: options,
+                constraint: constraint,
+                label: intl.formatMessage({
+                  id: "constraints.filters.specify",
+                }),
+                paths: null,
+                isLast: true,
+              },
+            ]);
+          }
         }
       }
       setLoading(false);
     });
   };
 
-  const Dropdowns = ({
-    options,
-    onChange,
-    index,
-    label,
-    paths,
-    isLast,
-    disabled,
-    constraint,
-    level,
-  }) => {
-    return (
-      <>
-        <Text
-          content={label}
-          styles={{ marginTop: "20px", display: "block" }}
-        />
-        <Dropdown
-          multiple={isLast}
-          search={isLast}
-          loading={loading}
-          disabled={disabled}
-          loadingMessage='Loading...'
-          placeholder='Start typing to select option.'
-          fluid
-          checkable
-          items={options}
-          constraint={constraint}
-          onChange={(ev, el) =>
-            onChange({
-              value: el.value,
-              paths,
-              isLast,
-              index,
-              constraint,
-              level,
-            })
-          }
-        />
-      </>
-    );
-  };
+  //When we switch parents, let's update select options
+  const updateSelects = (constraint, level, options) => {
+    //We're somewhere in cascading list of selects but not top
+    let updated = selectInputs
+      .filter(
+        (select) =>
+          select.constraint === constraint && select.level === level + 1
+      )
+      .map((child) => {
+        if (child.level === level + 1) {
+          child.options = options;
+          child.selected = true;
+        }
+        return child;
+      });
 
-  const updateValues = (vals) => {
-    setValues([
-      ...values,
-      {
-        level: vals.level,
-        value: vals.item.header,
-        constraint: vals.constraint,
-      },
-    ]);
+    setSelectInputs(
+      selectInputs.map((select) => {
+        return select.key === updated.key ? updated : select;
+      })
+    );
   };
 
   const getFieldValue = (level, constraint) => {
-    if (values.length == 0) return;
+    if (values.length === 0) return;
     var vals = values.filter(
-      (value) => value.level === level && value.constraint === constraint
+      (value) =>
+        (value.level === level && value.constraint === constraint) ||
+        (level === 0) & (value.constraint === null)
     );
+    if (vals.length) return vals[0].header;
+  };
 
-    if (vals.length) return vals[0].value;
+  const updateValues = (vals) => {
+    let currentVal = {
+      level: vals.level,
+      value: Array.isArray(vals.value)
+        ? vals.value
+            .filter((val) => val !== null && val !== undefined)
+            .map((val) => {
+              return val.key;
+            })
+        : vals.value.key,
+      header: Array.isArray(vals.value)
+        ? vals.value
+            .filter((val) => val !== null && val !== undefined)
+            .map((val) => {
+              return val.header;
+            })
+        : vals.value.header,
+      constraint: vals.constraint,
+      entity: vals.value.entity,
+    };
+    //Let's see if we have a value at the selected level
+    if (values.filter((v) => v.level === vals.level).length > 0)
+      setValues(values.map((v) => (v.level === vals.level ? currentVal : v)));
+    else setValues((v) => [...v, currentVal]);
   };
 
   const valuesChanged = (payload) => {
@@ -181,69 +193,89 @@ export const ConstraintsDialog = ({
         constraint = value.header.toLowerCase();
         setCurrentConstraint(constraint);
       }
-      //Do we have constraint in state already?
-      //If not, we may have to call external api for data
-      if (
-        selectInputs.filter((select) => select.constraint === constraint)
-          .length > 0
-      )
-        return;
-      //If we're using value of previous select to filter upcoming options
-      //We replace placeholder in url with the key
       let uri = paths.path.replace("{id}", value.key);
       getConstraints({
         ...paths,
-        ...{ path: uri, constraint, level, paths: value.paths },
+        ...{ path: uri, constraint, level, paths: value.paths, isLast },
       });
     }
-
-    //We mark options in state as selected.
-    let exists = selectInputs.filter(
-      (select) => select.constraint === constraint && select.level === level
-    );
-    let selects = selectInputs.reduce((prev, current) => {
-      if (
-        (current.constraint === constraint && current.level === level) ||
-        (current.level == 0 && value.constraint === null)
-      ) {
-        current.options.map((option) => {
-          if (option.key === value.key) option["selected"] = true;
-          else option["selected"] = false;
-        });
-      }
-      prev.push(current);
-      return prev;
-    }, []);
-    console.log(selects);
-    // setSelectInputs(selects);
   };
+
   React.useEffect(() => {
-    if (selectInputs.length === 0 && !loading)
+    //If we're editing, we need to get the subsequent selects
+    if (
+      intent.includes("edit") &&
+      values.length - 1 > selectInputs.length &&
+      selectInputs.length > 0
+    ) {
+      let cSelect = selectInputs[selectInputs.length - 1].options.filter(
+        (o) => o.header === values[selectInputs.length - 1].header
+      )[0];
+      if (cSelect)
+        valuesChanged({
+          value: cSelect,
+          paths:
+            cSelect.paths !== undefined
+              ? cSelect.paths[selectInputs.length - 1]
+              : selectInputs[selectInputs.length - 1].paths,
+          islast: values.length - 1 === selectInputs.length,
+          constraint: values[0].header.toLowerCase(),
+          level: selectInputs.length - 1,
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectInputs]);
+
+  React.useEffect(() => {
+    if (selectInputs.length === 0 && !loading) {
       getConstraints({
-        path: `constraints`,
+        path: `constraints?groups[]=constraints%3Aread`,
         propertyName: `name`,
         propertyValue: `id`,
+        propertyDescription: `description`,
         level: 0,
         constraint: null,
       });
+    }
   });
 
   return (
     <Dialog
-      cancelButton='Cancel'
-      confirmButton='Add constraint'
+      cancelButton={intl.formatMessage({ id: "general.cancel" })}
+      confirmButton={{
+        onClick: () => {
+          //We loop through the cascaded selection of values to
+          //get the IDs picked by the users
+          let payload = {
+            constraintItem: `/api/constraints/${values[0].value}`,
+            raw: values,
+            filters: values[values.length - 1].value,
+            ...iri,
+          };
+          action({ path: url, object: payload });
+          toggleConstraintsDialog();
+        },
+        content: intl.formatMessage(
+          {
+            id: "general.add",
+          },
+          {
+            subject: intl.formatMessage({ id: "constraints" }, { count: 1 }),
+          }
+        ),
+      }}
       content={{
         content: (
           <>
             {loading ? (
-              <Loader size='largest' label='loading...' labelPosition='below' />
+              <Loader size="largest" label="loading..." labelPosition="below" />
             ) : (
               <>
                 {selectInputs
                   .filter(
                     (select) =>
-                      select.constraint == currentConstraint ||
-                      select.constraint == null
+                      select.constraint === currentConstraint ||
+                      select.constraint === null
                   )
                   .sort((a, b) => {
                     if (a.index > b.index) {
@@ -256,18 +288,26 @@ export const ConstraintsDialog = ({
                   })
                   .map((select) => {
                     return (
-                      <Dropdowns
-                        key={`dropdown-${select.key}`}
+                      <DynamicDropdowns
+                        key={`dropdown-${select.level}-${select.key}`}
                         options={select.options}
                         index={select.index}
                         label={select.label}
                         paths={select.paths}
-                        onChange={valuesChanged}
+                        onChange={(ev) => {
+                          updateValues(ev);
+                          valuesChanged(ev);
+                        }}
                         isLast={select.isLast}
                         disabled={select.disabled}
                         constraint={select.constraint}
                         level={select.level}
-                      ></Dropdowns>
+                        loading={loading}
+                        fieldVal={getFieldValue(
+                          select.level,
+                          select.constraint
+                        )}
+                      ></DynamicDropdowns>
                     );
                   })}
               </>
@@ -281,7 +321,7 @@ export const ConstraintsDialog = ({
           overflow: "auto",
         },
       }}
-      header='New filter'
+      header={title}
       open={dialogOpen}
       onCancel={() => toggleConstraintsDialog()}
     />

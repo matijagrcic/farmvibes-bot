@@ -17,6 +17,9 @@ import {
   UPDATE_MENU_NODE_SUCCESS,
   UPDATE_MENU_NODE_ERROR,
   UPDATE_MENU_NODE,
+  UPDATE_MENU_SUCCESS,
+  UPDATE_MENU_ERROR,
+  UPDATE_MENU,
   PUBLISH_MENU_ERROR,
   PUBLISH_MENU_SUCCESS,
   PUBLISH_MENU,
@@ -37,14 +40,14 @@ export const getMenusError = (error) => ({
   payload: error,
 });
 
-export const createMenu = (menu, history) => ({
+export const createMenu = (menu, navigate) => ({
   type: CREATE_MENU,
-  payload: { menu, history },
+  payload: { menu, navigate },
 });
 
-export const createMenuSuccess = (menu, history) => ({
+export const createMenuSuccess = (menu, navigate) => ({
   type: CREATE_MENU_SUCCESS,
-  payload: { menu, history },
+  payload: { menu, navigate },
 });
 
 export const createMenuError = (error) => ({
@@ -67,14 +70,14 @@ export const createMenuNodeError = (error) => ({
   payload: error,
 });
 
-export const getMenu = (menu, history) => ({
+export const getMenu = (menu) => ({
   type: GET_MENU,
-  payload: { menu, history },
+  payload: { menu },
 });
 
-export const getMenuSuccess = (menu, history) => ({
+export const getMenuSuccess = (menu) => ({
   type: GET_MENU_SUCCESS,
-  payload: { menu, history },
+  payload: menu,
 });
 
 export const getMenuError = (error) => ({
@@ -97,6 +100,21 @@ export const updateMenuNodeError = (error) => ({
   payload: error,
 });
 
+export const updateMenu = (node) => ({
+  type: UPDATE_MENU,
+  payload: { node },
+});
+
+export const updateMenuSuccess = (node) => ({
+  type: UPDATE_MENU_SUCCESS,
+  payload: { node },
+});
+
+export const updateMenuError = (error) => ({
+  type: UPDATE_MENU_ERROR,
+  payload: error,
+});
+
 export const publishMenu = (node) => ({
   type: PUBLISH_MENU,
   payload: { node },
@@ -112,14 +130,14 @@ export const publishMenuError = (error) => ({
   payload: error,
 });
 
-export const removeMenuNode = (node, history) => ({
+export const removeMenuNode = (node) => ({
   type: REMOVE_MENU_NODE,
-  payload: { node, history },
+  payload: { node },
 });
 
-export const removeMenuNodeSuccess = (node, history) => ({
+export const removeMenuNodeSuccess = (node) => ({
   type: REMOVE_MENU_NODE_SUCCESS,
-  payload: { node, history },
+  payload: { node },
 });
 
 export const removeMenuNodeError = (error) => ({

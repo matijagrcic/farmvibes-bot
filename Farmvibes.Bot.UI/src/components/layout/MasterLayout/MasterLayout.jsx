@@ -17,7 +17,7 @@ const getStyles = ({ theme }) => {
 
 const getClassNames = classNamesFunction();
 
-function MasterLayoutComponent({ children, theme, styles }) {
+function MasterLayoutComponent({ children, theme, styles, onLocaleChange }) {
   const classNames = getClassNames(styles, { theme });
   const customNorthStar = {
     siteVariables: {
@@ -55,7 +55,7 @@ function MasterLayoutComponent({ children, theme, styles }) {
           <Sidebar />
         </Stack.Item>
         <Stack.Item grow={true}>
-          <TopMenu />
+          <TopMenu onLocaleChange={onLocaleChange} />
           <Stack className={classNames.contentWrapper}>{children}</Stack>
         </Stack.Item>
       </Stack>

@@ -15,6 +15,7 @@ import {
   UPDATE_CONTENT_SUCCESS,
   UPDATE_CONTENT_ERROR,
   UPDATE_CONTENT_ITEM,
+  RESET_CONTENT_ITEM,
   UPDATE_CONTENT_TEXT_ITEM_ERROR,
   UPDATE_CONTENT_TEXT_ITEM_SUCCESS,
   UPDATE_CONTENT_TEXT_ITEM,
@@ -106,9 +107,13 @@ export const updateContentItem = (values) => ({
   payload: values,
 });
 
+export const resetContentItem = () => ({
+  type: RESET_CONTENT_ITEM,
+});
+
 export const removeContentTextItem = (content) => ({
   type: REMOVE_CONTENT_TEXT_ITEM,
-  payload: { content },
+  payload: content,
 });
 
 export const removeContentTextItemSuccess = (content) => ({

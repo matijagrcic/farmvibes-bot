@@ -1,7 +1,6 @@
 import {
   AddIcon,
   Button,
-  Divider,
   Flex,
   Menu,
   pxToRem,
@@ -11,24 +10,19 @@ import {
   MenuButton,
   MoreIcon,
   gridCellWithFocusableElementBehavior,
-  SearchIcon,
-  Input,
   FlexItem,
   menuAsToolbarBehavior,
   Loader,
 } from "@fluentui/react-northstar";
-import { getFromStorage } from "helpers/utils";
-import { FontSizes, FontWeights } from "@fluentui/theme";
-import { Stack } from "@fluentui/react";
+import { IconButton } from "@fluentui/react";
+import { includesText } from "helpers/utils";
+import { useIntl } from "react-intl";
 import React from "react";
 import { itemsPerPage } from "global/defaultValues";
-import {
-  updateContentItem,
-  updateContentTextItem,
-  removeContentTextItem,
-} from "redux/actions";
+import { TableHeader } from "./tableHeader";
+import { updateContentTextItem } from "redux/actions";
 import { useDispatch } from "react-redux";
-import { flat } from "helpers/utils";
+import get from "lodash.get";
 
 export const Grouped = ({
   items,
@@ -42,15 +36,50 @@ export const Grouped = ({
   header,
   childRow,
   childRowContent,
+  getRecords,
+  searchColumns,
+  editChildItemFunction,
+  removeChildItemFunction,
+  menuActions,
 }) => {
   const dispatch = useDispatch();
+  const intl = useIntl();
   const [currentPage, setCurrentPage] = React.useState(1);
-  const [locale, setLocale] = React.useState(getFromStorage("locale"));
+  const [rowsInternal, setRowsInternal] = React.useState([]);
+  const [hasPreviousPage, setHasPreviousPage] = React.useState(false);
+  let searchDb = true;
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [hasNextPage, setHasNextPage] = React.useState(false);
+  const loadFirstPage = () => {
+    setCurrentPage(1);
+  };
+  const loadNextPage = () => {
+    setCurrentPage((prev) => prev + 1);
+  };
+  const loadPreviousPage = () => {
+    setCurrentPage((prev) => prev - 1);
+  };
 
-  const rowsInternal = React.useMemo(() => {
+  const onChangeText = (text) => {
+    searchDb = false;
+    setSearchQuery(text);
+    if (text.length > 2) {
+      let itms = groups.filter((i) => includesText(i, text, true)) || groups;
+      setRowsInternal(buildItems(itms));
+    } else setRowsInternal(buildItems(groups));
+  };
+
+  const onDBSearch = (text) => {
+    searchDb = true;
+    setSearchQuery(text);
+    setCurrentPage(1);
+    fetchRecords();
+  };
+
+  const buildItems = (collection) => {
     const styro = { padding: "15px 0", height: "auto" };
     const newRows = [];
-    for (const group of groups) {
+    for (const group of collection) {
       newRows.push({
         key: `group-header-${group.key}`,
         items: [
@@ -81,8 +110,8 @@ export const Grouped = ({
                         }}
                       />
                     ),
-                    key: `add-to-content-${group.key}`,
-                    "aria-label": "Add",
+                    key: `add-to-parent-${group.key}`,
+                    "aria-label": intl.formatMessage({ id: "general.add" }),
                     onClick: () => {
                       addFunction("create-child", group);
                     },
@@ -97,16 +126,15 @@ export const Grouped = ({
                       />
                     ),
                     key: `remove-content-${group.key}`,
-                    "aria-label": "Delete",
+                    "aria-label": intl.formatMessage({ id: "general.delete" }),
                     onClick: () => {
                       removeFunction({ id: group.key });
-                      setTimeout(() => window.location.reload(false), 3000);
                     },
                   },
                 ]}
                 iconOnly
                 accessibility={menuAsToolbarBehavior}
-                aria-label='Content Actions'
+                aria-label={intl.formatMessage({ id: "general.actions" })}
               />
             ),
           },
@@ -115,84 +143,98 @@ export const Grouped = ({
         className: "ui-table_group_header",
       });
 
-      if (group.items !== undefined)
+      if (group.items !== undefined) {
         newRows.push(
           ...group.items.map((item) => {
+            let itemId = item.id || item;
             return {
               styles: styro,
-              key: `row-item-${item.id}`,
+              key: `row-item-${itemId}`,
               items: [
                 {
-                  key: `cell-item-text-${item.id}`,
+                  key: `cell-item-text-${itemId}`,
                   content: Array.isArray(item[childRow])
                     ? item[childRow].length > 0
-                      ? item[childRow][0][childRowContent]
+                      ? get(item, `${childRow}.0.${childRowContent}`)
                       : ""
                     : item[childRow],
                   styles: { flexGrow: 4 },
                 },
                 {
-                  key: `cell-item-created-${item.id}`,
-                  content: item.createdAt,
+                  key: `cell-item-created-${itemId}`,
+                  content: intl.formatDate(new Date(item.createdAt), {
+                    year: "numeric",
+                    month: "short",
+                    hour: "numeric",
+                    minute: "numeric",
+                    day: "numeric",
+                  }),
                   styles: { flexGrow: 1 },
                 },
                 {
-                  key: `cell-item-updated-${item.id}`,
-                  content: item.updatedAt,
+                  key: `cell-item-updated-${itemId}`,
+                  content: intl.formatDate(new Date(item.updatedAt), {
+                    year: "numeric",
+                    month: "short",
+                    hour: "numeric",
+                    minute: "numeric",
+                    day: "numeric",
+                  }),
                   styles: { flexGrow: 1 },
                 },
                 {
-                  key: `cell-item-actions-${item.id}`,
+                  key: `cell-item-actions-${itemId}`,
                   content: (
                     <MenuButton
                       trigger={
                         <Button
                           icon={<MoreIcon />}
                           iconOnly
-                          title='More options'
+                          title={intl.formatMessage({
+                            id: "general.more.actions",
+                          })}
                           text
-                          aria-label='Click button'
+                          aria-label={intl.formatMessage({
+                            id: "general.more.actions",
+                          })}
                         />
                       }
                       menu={[
                         {
-                          key: `edit-item-${item.id}`,
-                          content: <Text content='Edit' />,
+                          key: `edit-item-${itemId}`,
+                          content: (
+                            <Text
+                              content={intl.formatMessage(
+                                {
+                                  id: "general.edit",
+                                },
+                                { subject: "" }
+                              )}
+                            />
+                          ),
                           onClick: (e) => {
-                            dispatch(
-                              updateContentItem({
-                                text: item.raw.map((variant, index) => {
-                                  return {
-                                    ...variant,
-                                    id: Object.keys(
-                                      item.contentTextVariants[index]
-                                        .translations
-                                    ).reduce((prev, translation) => {
-                                      return {
-                                        ...prev,
-                                        ...{
-                                          [translation]:
-                                            item.contentTextVariants[index]
-                                              .translations[translation].id,
-                                        },
-                                      };
-                                    }, {}),
-                                  };
-                                }),
-                                ...flat(group.label),
-                                content: group.key,
-                                id: group.key,
-                              })
-                            );
-                            addFunction("edit-text");
+                            editChildItemFunction(item, group);
+                            addFunction("edit-item");
                           },
                         },
                         {
-                          key: `publish-item-${item.id}`,
+                          key: `publish-item-${itemId}`,
                           content: (
                             <Text
                               content={
-                                item.isPublished ? "Unpublish" : "Publish"
+                                item.isPublished
+                                  ? intl.formatMessage(
+                                      {
+                                        id: "general.unpublish",
+                                      },
+                                      { subject: "" }
+                                    )
+                                  : intl.formatMessage(
+                                      {
+                                        id: "general.publish",
+                                      },
+                                      { subject: "" }
+                                    )
                               }
                             />
                           ),
@@ -211,23 +253,24 @@ export const Grouped = ({
                           },
                         },
                         {
-                          key: `remove-item-${item.id}`,
-                          content: <Text content='Remove' />,
+                          key: `remove-item-${itemId}`,
+                          content: (
+                            <Text
+                              content={intl.formatMessage(
+                                {
+                                  id: "general.remove",
+                                },
+                                { subject: "" }
+                              )}
+                            />
+                          ),
                           onClick: (e) => {
                             e.preventDefault();
-                            dispatch(
-                              removeContentTextItem({
-                                id: item.id,
-                              })
-                            );
-                            setTimeout(
-                              () => window.location.reload(false),
-                              3000
-                            );
+                            removeChildItemFunction(item.id, group.key);
                           },
                         },
                       ]}
-                      on='click'
+                      on="click"
                     />
                   ),
                   accessibility: gridCellWithFocusableElementBehavior,
@@ -240,106 +283,138 @@ export const Grouped = ({
             };
           })
         );
+      }
     }
     return newRows;
+  };
+
+  const fetchRecords = () => {
+    if (searchDb) {
+      let query = {};
+      searchColumns.forEach(
+        (col) => (query = { ...query, [col]: searchQuery })
+      );
+      getRecords({ _page: currentPage, itemsPerPage: itemsPerPage, ...query });
+      if (currentPage > 1) setHasPreviousPage(true);
+      else setHasPreviousPage(false);
+    }
+  };
+
+  React.useEffect(() => {
+    let itemRows = buildItems(groups);
+    setRowsInternal(itemRows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groups]);
+
+  React.useEffect(() => {
+    fetchRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
+
+  React.useEffect(() => {
+    if (items >= itemsPerPage) setHasNextPage(true);
+    else setHasNextPage(false);
+  }, [items]);
 
   return (
     <>
-      <Stack>
-        <h1 style={{ fontSize: FontSizes.size42 }}>
-          {pageTitle}
-          <span
-            style={{
-              fontSize: FontSizes.size16,
-              fontWeight: FontWeights.regular,
-              margin: "0px 0px 0px 23px",
-            }}
-            className={"subTitle-117"}
-          >
-            {pageDescription}
-          </span>
-        </h1>
-      </Stack>
-      <Flex column padding='padding.medium' gap='gap.small'>
-        <Flex space='between'>
+      <TableHeader
+        header={pageTitle}
+        searchAction={onChangeText}
+        onDBSearch={onDBSearch}
+        searchQuery={searchQuery}
+        description={pageDescription}
+        menuActions={menuActions}
+      />
+      <Flex column padding="padding.medium" gap="gap.small">
+        <Flex space="between">
           <FlexItem>
-            <Menu
-              iconOnly
-              styles={{
-                position: "sticky",
-                top: 0,
-                zIndex: 100,
-                alignItems: "stretch",
-              }}
-              items={[
+            <Text
+              content={intl.formatMessage(
                 {
-                  key: "add-item-main",
-                  content: (
-                    <Button
-                      iconOnly
-                      text
-                      icon={<AddIcon />}
-                      content={
-                        <Text weight='regular' content={addFunctionTitle} />
-                      }
-                      onClick={() => {
-                        addFunction();
-                      }}
-                    />
-                  ),
-                  styles: { border: "transparent" },
+                  id: "general.list.count",
                 },
-                {
-                  content: <Divider vertical size={0} />,
-                  disabled: true,
-                  active: false,
-                  styles: {
-                    height: "100%",
-                    alignSelf: "stretch",
-                    "& .ui-menu__itemcontent": {
-                      height: "100%",
-                    },
-                  },
-                  key: "divider",
-                },
-                {
-                  content: <Text content={`${items} items`} color='default' />,
-                  disabled: true,
-                  active: false,
-                  as: "div",
-                  key: "items-counter",
-                },
-              ]}
+                { count: items }
+              )}
+              color="default"
             />
           </FlexItem>
-          <FlexItem>
-            <Input icon={<SearchIcon />} placeholder='Search...' />
-          </FlexItem>
         </Flex>
-        <Table
-          styles={{
-            "& .ui-table_group_header": {
-              position: "sticky",
-              top: pxToRem(81),
-              zIndex: 300,
-            },
-          }}
-          header={{
-            styles: {
-              position: "sticky",
-              top: pxToRem(33),
-              zIndex: 200,
-              fontSize: pxToRem(12),
-            },
-            items: header,
-            compact: false,
-          }}
-          rows={rowsInternal}
-        />
-        {loading && (
-          <Loader size='largest' label='loading' labelPosition='below' />
+        {loading ? (
+          <Loader
+            size="largest"
+            label={intl.formatMessage(
+              {
+                id: "general.loading",
+              },
+              { subject: addFunctionTitle }
+            )}
+            labelPosition="below"
+          />
+        ) : (
+          <Table
+            styles={{
+              "& .ui-table_group_header": {
+                position: "sticky",
+                top: pxToRem(81),
+                zIndex: 300,
+              },
+            }}
+            header={{
+              styles: {
+                position: "sticky",
+                top: pxToRem(33),
+                zIndex: 200,
+                fontSize: pxToRem(12),
+              },
+              items: header,
+              compact: false,
+            }}
+            rows={rowsInternal}
+          />
         )}
+
+        <Flex
+          style={{ width: "100%" }}
+          tokens={{ childrenGap: "5", padding: "l2" }}
+          hAlign="center"
+        >
+          <IconButton
+            iconProps={{ iconName: "Rewind" }}
+            disabled={!hasPreviousPage}
+            onClick={loadFirstPage}
+            ariaLabel={intl.formatMessage({ id: "general.pagination.first" })}
+          />
+          <IconButton
+            iconProps={{ iconName: "Previous" }}
+            disabled={!hasPreviousPage}
+            onClick={loadPreviousPage}
+            ariaLabel={intl.formatMessage({
+              id: "general.pagination.previous",
+            })}
+          />
+          <FlexItem
+            align="center"
+            style={{ width: "32px", textAlign: "center" }}
+          >
+            <Text
+              content={currentPage.toString()}
+              aria-label={intl.formatMessage(
+                {
+                  id: "general.pagination.current",
+                },
+                { page: currentPage.toString() }
+              )}
+            />
+          </FlexItem>
+          <IconButton
+            alt="Next Page"
+            iconProps={{ iconName: "Next" }}
+            disabled={!hasNextPage}
+            onClick={loadNextPage}
+            ariaLabel={intl.formatMessage({ id: "general.pagination.next" })}
+          />
+        </Flex>
       </Flex>
     </>
   );

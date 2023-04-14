@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import { Redirect, Route, Switch } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 const Services = React.lazy(() =>
   import(/* webpackChunkName: "services" */ "./services")
@@ -10,19 +10,12 @@ const ServiceDetails = React.memo(
 );
 
 const Service = ({ route }) => (
-  <Suspense fallback={<div className='loading' />}>
-    <Switch>
-      <Redirect exact from={`${route.path}/`} to={`${route.path}/list`} />
-      <Route
-        path={`${route.path}/list`}
-        render={(props) => <Services {...props} />}
-      />
-      <Route
-        path={`${route.path}/details/:serviceId`}
-        render={(props) => <ServiceDetails {...props} />}
-      />
-      <Redirect to='/error' />
-    </Switch>
+  <Suspense fallback={<div className="loading" />}>
+    <Routes>
+      <Route path={`/`} element={<Services />} />
+      <Route path={`:serviceId`} element={<ServiceDetails />} />
+      <Route element={<Navigate to="/error" />} />
+    </Routes>
   </Suspense>
 );
 export default Service;

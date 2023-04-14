@@ -1,5 +1,4 @@
 import React from "react";
-import { FontSizes, FontWeights } from "@fluentui/theme";
 import { connect } from "react-redux";
 import { getStyles } from "components/layout/Sidebar/Nav/Nav.styles";
 import {
@@ -11,18 +10,25 @@ import {
 } from "../../redux/actions";
 import { PanelContainer, DialogBox } from "components/containers";
 import { Table } from "components/containers/table";
+import { styled, Overlay } from "@fluentui/react";
 import {
-  getTheme,
-  Stack,
-  styled,
-  Icon,
-  TooltipHost,
-  mergeStyles,
-  mergeStyleSets,
-} from "@fluentui/react";
+  Loader,
+  Form,
+  Button,
+  AcceptIcon,
+  BanIcon,
+  Text,
+  Status,
+} from "@fluentui/react-northstar";
 import { DynamicForm } from "components/forms";
-import { addLanguage } from "global/defaultValues";
-import { flat } from "helpers/utils";
+import {
+  capitaliseSentense,
+  flat,
+  makeListRequest,
+  validateForm,
+} from "helpers/utils";
+import { useLanguages } from "helpers/utilities";
+import { useIntl } from "react-intl";
 
 const Languages = ({
   loading,
@@ -30,37 +36,29 @@ const Languages = ({
   language,
   getLanguagesAction,
   createLanguageAction,
-  getLanguageAction,
   updateLanguageAction,
   removeLanguageAction,
   error,
 }) => {
-  const theme = getTheme();
-  const [locale, setLocale] = React.useState("en");
+  const { locale } = useLanguages();
+  const intl = useIntl();
+  const [translatable, setTranslatable] = React.useState([]);
   const [panelHidden, setPanelHidden] = React.useState(false);
   const [panelTitle, setPanelTitle] = React.useState("");
   const [formValues, setFormValues] = React.useState({});
   const [persistStatus, setPersistStatus] = React.useState(undefined);
-  const [dialogHidden, setDialogHidden] = React.useState(true);
+  const [dialogHidden, setDialogHidden] = React.useState(false);
   const [dialogTitle, setDialogTitle] = React.useState("");
   const [dialogContent, setDialogContent] = React.useState([]);
+  const [loaderLabel, setLoaderLabel] = React.useState(
+    intl.formatMessage({ id: "general.loading" }, { subject: "" })
+  );
+  const [blockSubmit, setBlockSubmit] = React.useState(false);
   const [dialogProceedFunction, setDialogProceedFunction] =
     React.useState(null);
   const [dialogProceedFunctionParams, setDialogProceedFunctionParams] =
     React.useState({});
   let selected = [];
-  const iconClass = mergeStyles({
-    fontSize: 20,
-    height: 20,
-    width: 20,
-    margin: "0 auto",
-    cursor: "pointer",
-    FontWeight: 600,
-  });
-  const classNames = mergeStyleSets({
-    danger: [{ color: theme.palette.redDark }, iconClass],
-    success: [{ color: theme.palette.green }, iconClass],
-  });
 
   const showPanel = () => {
     return setPanelHidden(!panelHidden);
@@ -73,8 +71,7 @@ const Languages = ({
   const menuActions = [
     {
       key: "newItem",
-      text: "New",
-      cacheKey: "myCacheKey", // changing this key will invalidate this item's cache
+      text: intl.formatMessage({ id: "general.new" }, { subject: "" }),
       iconProps: { iconName: "Add" },
       onClick: () => {
         setPanelTitle("Add Language");
@@ -83,7 +80,7 @@ const Languages = ({
     },
     {
       key: "edit",
-      text: "Edit",
+      text: intl.formatMessage({ id: "general.edit" }, { subject: "" }),
       iconProps: { iconName: "Edit" },
       disabled: true,
       onClick: () => onItemInvoked(selected[0]),
@@ -91,94 +88,233 @@ const Languages = ({
     },
     {
       key: "delete",
-      text: "Delete",
+      text: intl.formatMessage({ id: "general.delete" }, { subject: "" }),
       iconProps: { iconName: "Delete" },
       disabled: true,
       activeCount: " > 0",
+      onClick: () => onItemRemove(selected[0]),
     },
   ];
 
+  const madeDefault = (item) => {
+    setDialogTitle(
+      intl.formatMessage(
+        { id: "general.make.default" },
+        { subject: item.translations[locale]["name"] }
+      )
+    );
+    setDialogContent(intl.formatMessage({ id: "language.default.confirm" }));
+    setDialogProceedFunction(() => updateLanguageAction);
+    setDialogProceedFunctionParams({ isDefault: true, id: item.id });
+    toggleDialog();
+  };
+
   const columns = [
     {
-      name: "Name",
+      name: intl.formatMessage({ id: "general.name" }),
       fieldName: `name`,
       key: `name`,
       data: "string",
       isRowHeader: true,
       isResizable: true,
-      isMultiline: true,
       isSorted: false,
       isSortedDescending: false,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
     },
     {
       name: "ISO Code",
       fieldName: `code`,
       key: `code`,
       data: "string",
-      isRowHeader: true,
       isResizable: true,
       isMultiline: true,
       isSorted: false,
       isSortedDescending: false,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
     },
     {
       fieldName: "isEnabled",
-      name: "Enabled?",
+      name: intl.formatMessage({ id: "general.isenabled" }),
       key: "isEnabled",
       data: "boolean",
-      isRowHeader: true,
       isResizable: true,
       isSorted: false,
       isSortedDescending: false,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
       onRender: (item) => {
         return (
-          <TooltipHost content={item.isEnabled ? `Enabled` : `Disabled`}>
-            <Icon
-              iconName={item.isEnabled ? `Accept` : `CalculatorMultiply`}
-              className={
-                item.isEnabled ? classNames.success : classNames.danger
-              }
-            />
-          </TooltipHost>
+          <Button
+            icon={item.isEnabled ? <AcceptIcon /> : <BanIcon />}
+            text
+            disabled={item.isDefault}
+            content={
+              item.isEnabled
+                ? intl.formatMessage({ id: "general.yes" })
+                : intl.formatMessage({ id: "general.no" })
+            }
+            onClick={() => {
+              setDialogTitle(
+                `${
+                  item.isEnabled
+                    ? intl.formatMessage({ id: "general.deactivate" })
+                    : intl.formatMessage({ id: "general.activate" })
+                }`
+              );
+              setDialogContent(
+                `${intl.formatMessage(
+                  { id: "language.toggle" },
+                  {
+                    action: item.isEnabled
+                      ? intl.formatMessage({ id: "general.toggle.disable" })
+                      : intl.formatMessage({ id: "general.state.enable" }),
+                  }
+                )} ${
+                  item.isTranslatable && !item.isEnabled
+                    ? intl.formatMessage({
+                        id: "language.autotranslate.available",
+                      })
+                    : intl.formatMessage({
+                        id: "language.autotranslate.unavailable",
+                      })
+                } ${intl.formatMessage({
+                  id: "general.confirm.proceed",
+                })}`
+              );
+              toggleDialog();
+              setDialogProceedFunction(() => updateLanguageAction);
+              setDialogProceedFunctionParams({
+                isEnabled: !item.isEnabled,
+                id: item.id,
+              });
+            }}
+          />
         );
       },
     },
     {
-      name: "Created on",
+      fieldName: "isDefault",
+      name: intl.formatMessage({ id: "general.isdefault" }),
+      key: "isDefault",
+      data: "boolean",
+      isResizable: true,
+      isSorted: false,
+      isPadded: false,
+      isSortedDescending: false,
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
+      onRender: (item) => {
+        return (
+          <Button
+            icon={item.isDefault ? <AcceptIcon /> : <BanIcon />}
+            text
+            content={
+              item.isDefault
+                ? intl.formatMessage({ id: "general.yes" })
+                : intl.formatMessage({ id: "general.no" })
+            }
+            disabled={item.isEnabled === false}
+            onClick={() =>
+              item.isDefault || !item.isEnabled ? null : madeDefault(item)
+            }
+          />
+        );
+      },
+    },
+    {
+      fieldName: "isTranslatable",
+      name: intl.formatMessage({ id: "language.autotranslate.translatable" }),
+      key: "isTranslatable",
+      data: "boolean",
+      isResizable: true,
+      isSorted: false,
+      isPadded: true,
+      isSortedDescending: false,
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
+      onRender: (item) => {
+        return (
+          <Status
+            state={item.isTranslatable ? "success" : "error"}
+            title={
+              item.isTranslatable
+                ? intl.formatMessage({ id: "general.yes" })
+                : intl.formatMessage({ id: "general.no" })
+            }
+          />
+        );
+      },
+    },
+    {
+      name: intl.formatMessage({ id: "general.created.on" }),
       key: "createdAt",
       fieldName: "createdAt",
       data: "string",
-      isRowHeader: true,
       isResizable: true,
       isSorted: true,
       minWidth: 150,
       isSortedDescending: true,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
       onRender: (dt) => {
-        return new Date(dt.createdAt).toLocaleString();
+        return intl.formatDate(new Date(dt.createdAt), {
+          year: "numeric",
+          month: "short",
+          hour: "numeric",
+          minute: "numeric",
+          day: "numeric",
+        });
       },
     },
     {
-      name: "Updated on",
+      name: intl.formatMessage({ id: "general.updated.on" }),
       key: "updatedAt",
       fieldName: "updatedAt",
       data: "string",
-      isRowHeader: true,
       isResizable: true,
       isSorted: false,
       minWidth: 150,
       isSortedDescending: true,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
       onRender: (dt) => {
-        return new Date(dt.updatedAt).toLocaleString();
+        return intl.formatDate(new Date(dt.updatedAt), {
+          year: "numeric",
+          month: "short",
+          hour: "numeric",
+          minute: "numeric",
+          day: "numeric",
+        });
       },
     },
   ];
@@ -188,7 +324,7 @@ const Languages = ({
   };
 
   const onItemInvoked = (item) => {
-    setPanelTitle("Edit item");
+    setPanelTitle(intl.formatMessage({ id: "general.edit" }, { subject: "" }));
     let temp = flat(item);
     setFormValues(
       Object.keys(temp).reduce((res, key) => {
@@ -201,12 +337,24 @@ const Languages = ({
 
   const onItemRemove = (item) => {
     toggleDialog();
-    setDialogProceedFunctionParams(item);
-    setDialogTitle("Remove language");
-    setDialogProceedFunction(() => removeLanguageAction);
-    setDialogContent(
-      "You are about to remove a language. This may have adverse effects in the case users have this as their default language. Content in this language will also be removed. Would you still like to proceed?"
-    );
+    if (item.isDefault) {
+      setDialogContent(
+        intl.formatMessage({ id: "language.default.remove.notallowed" })
+      );
+      setDialogProceedFunction(() => toggleDialog);
+    } else {
+      setDialogProceedFunctionParams(item);
+      setDialogTitle(
+        intl.formatMessage(
+          { id: "general.remove" },
+          { subject: intl.formatMessage({ id: "language" }, { count: 1 }) }
+        )
+      );
+      setDialogProceedFunction(() => removeLanguageAction);
+      setDialogContent(
+        intl.formatMessage({ id: "language.default.remove.allowed" })
+      );
+    }
   };
 
   const onPanelDismiss = () => {
@@ -215,10 +363,81 @@ const Languages = ({
     language = undefined;
   };
 
+  const updateValues = (values) => {
+    setFormValues((prev) => {
+      return { ...prev, ...values };
+    });
+  };
+
+  let addLanguage = [
+    {
+      name: "name",
+      key: "name",
+      required: true,
+      length: 50,
+      type: "string",
+      label: intl.formatMessage({ id: "general.name" }),
+      translatable: true,
+      onBlur: (event) => {
+        let val = event.value;
+        let langExists = translatable.filter(
+          (l) =>
+            val.length > 0 &&
+            (l.header === val || l.header.includes(val) || l.content === val)
+        );
+        if (langExists.length > 0)
+          updateValues({ code: langExists[0].key, isTranslatable: true });
+        else updateValues({ code: "", isTranslatable: false });
+      },
+      variant: "northstar",
+      hint: intl.formatMessage({ id: "language.add.hint" }),
+    },
+    {
+      name: "code",
+      key: "code",
+      required: true,
+      length: 3,
+      type: "string",
+      label: intl.formatMessage({ id: "language.code" }),
+      translatable: false,
+      variant: "northstar",
+    },
+    {
+      name: "isEnabled",
+      key: "isEnabled",
+      required: false,
+      length: 3,
+      type: "boolean",
+      label: intl.formatMessage({ id: "language.enabled" }),
+      translatable: false,
+      selectedText: intl.formatMessage({ id: "general.activated" }),
+      deselectedText: intl.formatMessage({ id: "general.deactivated" }),
+    },
+  ];
+
+  const preventSubmit = (status, message = "") => {
+    setBlockSubmit(status);
+    setLoaderLabel(message);
+  };
+
   React.useEffect(() => {
     if (error !== undefined) setPersistStatus({ error: error });
-    if (language !== undefined) setPersistStatus({ success: language });
-  }, [language, error]);
+    if (language !== undefined && loading === false) onPanelDismiss();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
+
+  React.useEffect(() => {
+    makeListRequest({ url: "get_translator_languages" }).then((result) => {
+      let supportedLingos = Object.keys(result.translation).map((key) => {
+        return {
+          key: key,
+          header: result.translation[key].name,
+          content: result.translation[key].nativeName,
+        };
+      });
+      setTranslatable(supportedLingos);
+    });
+  }, []);
 
   return (
     <>
@@ -231,9 +450,10 @@ const Languages = ({
         itemRemove={onItemRemove}
         cols={columns}
         isCompactMode={false}
-        locale={locale}
         getRecords={getLanguagesAction}
-        header={"Languages"}
+        header={capitaliseSentense(
+          intl.formatMessage({ id: "language" }, { count: 1 })
+        )}
       />
       {panelTitle.length > 0 && (
         <PanelContainer
@@ -243,21 +463,54 @@ const Languages = ({
           header={panelTitle}
           showPanel={showPanel}
           content={
-            <DynamicForm
-              submitStatus={persistStatus}
-              languages={languages}
-              inputs={addLanguage}
-              onSubmit={
-                Object.keys(formValues).length > 0
-                  ? updateLanguageAction
-                  : createLanguageAction
-              }
-              locale={locale}
-              error={error}
-              inputValues={formValues}
-            />
+            <Form
+              noValidate
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+              style={{ width: "100%" }}
+              className="validate"
+            >
+              {blockSubmit && (
+                <Overlay className={"loader"}>
+                  <Loader label={loaderLabel} size="largest" />
+                </Overlay>
+              )}
+              <Text
+                error
+                content={intl.formatMessage({
+                  id: "general.background.process",
+                })}
+              />
+              <DynamicForm
+                submitStatus={persistStatus}
+                languages={languages}
+                valuesChanged={updateValues}
+                inputs={addLanguage}
+                onSubmit={(e, data) => {
+                  let hasErrors = validateForm(
+                    e.target.parentElement.form.elements
+                  );
+                  if (!hasErrors) {
+                    panelTitle.includes(
+                      intl.formatMessage({
+                        id: "general.edit",
+                      })
+                    )
+                      ? updateLanguageAction(data)
+                      : createLanguageAction(data);
+                  }
+                }}
+                locale={locale}
+                error={error}
+                inputValues={formValues}
+                reverse={false}
+                preventSubmit={preventSubmit}
+                loading={loading}
+              />
+            </Form>
           }
-          description='The platform supports interaction in multiple languages. Adding a language here will make it available for users within the platform. If you already had content in the system, it would be advisable to go back and update the content for this new language for the benefit of your users.'
+          description={intl.formatMessage({ id: "language.page.description" })}
         />
       )}
       <DialogBox
@@ -265,8 +518,8 @@ const Languages = ({
         dialogHidden={dialogHidden}
         showDialog={toggleDialog}
         content={dialogContent}
-        cancel='Cancel'
-        confirm='Confirm'
+        cancel={intl.formatMessage({ id: "general.cancel" })}
+        confirm={intl.formatMessage({ id: "general.confirm" })}
         proceedFunction={dialogProceedFunction}
         params={dialogProceedFunctionParams}
       />

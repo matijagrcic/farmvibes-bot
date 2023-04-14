@@ -8,42 +8,56 @@ import {
   ComboBoxField,
   ArrayField,
   UploadField,
-  RichTextEditor,
   CheckboxField,
+  RichEditor,
 } from "components/forms";
 import {
   TooltipHost,
   MessageBarType,
   MessageBar,
-  Spinner,
-  SpinnerSize,
   Stack,
-  PrimaryButton,
   Separator,
   Pivot,
   PivotItem,
-  ActionButton,
 } from "@fluentui/react";
 import { Button } from "@fluentui/react-northstar";
-import { unflatten, getFromStorage, capitaliseSentence } from "helpers/utils";
+import { translationsDelay } from "global/defaultValues";
+import {
+  unflatten,
+  includesText,
+  removeError,
+  handleValidation,
+  showError,
+  capitaliseSentense,
+} from "helpers/utils";
 import { post } from "helpers/requests";
+import { useLanguages } from "helpers/utilities";
+import { useIntl } from "react-intl";
 
 export const DynamicForm = React.memo(
   ({
     inputs,
     formWidth,
     onSubmit,
-    history,
+    navigate,
     inputValues,
-    locale,
     loading,
     error,
     valuesChanged,
+    handleSearchQuery,
     reverse = true,
+    preventSubmit,
+    disableSubmit,
+    dataPool,
+    isValid,
   }) => {
     //Values provided by the user
     const [values, setValues] = React.useState(inputValues || {});
-    const [localLoading, setLocalLoading] = React.useState(false);
+    const { languages } = useLanguages();
+    const intl = useIntl();
+    const stateRef = React.useRef();
+    stateRef.current = values;
+    const [personalisationFields] = React.useState([]);
     let arrayKeys = {};
 
     //Inputs to be shown on the form
@@ -52,10 +66,18 @@ export const DynamicForm = React.memo(
     //Track list of uploaded files
     const [files, setFiles] = React.useState([]);
 
+    //Track list of errors
+    const [validationError, setValidationError] = React.useState([]);
+
     //Icon to show for adding list fields
     const addIcon = { iconName: "Add" };
 
     const [submitStatus, setSubmitStatus] = React.useState(null);
+
+    React.useEffect(() => {
+      if (isValid) isValid(validationError.length > 0);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [validationError]);
 
     const handleChange = (event, value) => {
       let fieldName = null;
@@ -81,13 +103,16 @@ export const DynamicForm = React.memo(
 
       if (fieldName === undefined || fieldVal === undefined) return;
 
+      _clearValidationError(fieldName);
+
       let newVal = {
         ...values,
         ...{
           [fieldName]: fieldVal,
         },
       };
-
+      //This line could have side effects on editing content
+      setValues(newVal);
       if (valuesChanged) valuesChanged(newVal);
     };
 
@@ -96,21 +121,69 @@ export const DynamicForm = React.memo(
       setFiles([...files, upload]);
     };
 
-    const _handleValidation = (value, maxLength) => {
-      let fieldIsValid = value === null || value === "";
-      if (fieldIsValid) return "This field is required";
-
-      //If the field length is not limited, we want to show the user and error when characters are exceeded
-      fieldIsValid = maxLength > 0 && value.length > maxLength;
-      if (fieldIsValid) return "Exceeded limit";
-
-      return "";
+    const _clearValidationError = (field) => {
+      setValidationError((prev) => prev.filter((e) => e.field !== field));
     };
 
-    const _autoTranslate = (fieldName, fieldVal) => {
+    const _validateOnBlur = (currentTarget) => {
+      // Only run if the field is in a form to be validated
+      if (!currentTarget.form.classList.contains("validate")) return;
+
+      // Validate the field
+      let error = handleValidation(currentTarget);
+
+      // If there's an error, show it
+      if (error) {
+        showError(currentTarget, error);
+        setSubmitStatus(null);
+        return;
+      }
+
+      // Otherwise, remove any existing error message
+      removeError(currentTarget);
+    };
+
+    const _uniqueValidationCheck = (field, val) => {
+      //Let's check if we need to validate
+      let validationCheck = formInputs.filter(
+        (f) => f.name === field && f.unique
+      );
+
+      if (validationCheck.length > 0) {
+        let check = includesText(dataPool, val, true, true);
+        if (check)
+          setValidationError((e) => [
+            ...e,
+            { field, message: "This value should be unique" },
+          ]);
+        else {
+          _clearValidationError(field);
+        }
+        return check;
+      }
+      return false;
+    };
+
+    const _autoTranslate = async (currentTarget) => {
+      let fieldVal = currentTarget.value;
+      let fieldName = currentTarget.name;
+      //let's translate only translate strings of length greater than one
+      if (fieldVal.length === 0) return;
+
       //If the field is offers text in various languages, let's check if the current locale is default.
       //If default, translate all other languages
       if (fieldName.includes("translations")) {
+        //Let's fetch available languages
+
+        //We do not need to proceed if we have less than two languages
+        if (languages.length < 2) return;
+
+        //Let's show loader as translation happens in the background
+        if (preventSubmit)
+          preventSubmit(
+            true,
+            `Translating ${fieldName.substring(fieldName.lastIndexOf(".") + 1)}`
+          );
         //Are we on a default language?
         const arraysFromName = fieldName.match(/(?<=\.)(.*?)(?=\.)/gm);
 
@@ -122,14 +195,17 @@ export const DynamicForm = React.memo(
 
           //Are we on default lingo?
           if (
-            getFromStorage("languages").filter(
+            languages.filter(
               (lingo) => lingo.isDefault && lingo.code === currentLingo
             ).length > 0
           ) {
             const to = [];
-            getFromStorage("languages").forEach((lingo) => {
-              if (!lingo.isDefault) {
+            const untranslatable = [];
+            languages.forEach((lingo) => {
+              if (!lingo.isDefault && lingo.isTranslatable) {
                 to.push(lingo.code);
+              } else {
+                untranslatable.push(lingo.code);
               }
             });
             post("get_translation", {
@@ -137,27 +213,25 @@ export const DynamicForm = React.memo(
               to,
               from: currentLingo,
             }).then((result) => {
-              if (result.length > 0) {
-                result[0].translations.map((translation) => {
+              if (result && result.status === "success") {
+                result.translations.forEach((translation) => {
                   newVal[fieldName.replace(currentLingo, translation.to)] =
-                    translation.text
-                      .replace(/<\/?[^>]+(>|$)/g, "")
-                      .replace(/([.?!])(\s)*(?=[A-Z])/g, "$1|")
-                      .split("|")
-                      .map((word) => {
-                        return word.replace(/^\w/, (c) => c.toUpperCase());
-                      })
-                      .join(". ");
+                    capitaliseSentense(translation.text);
                 });
-
-                if (Object.keys(newVal).length > 0) {
-                  setValues((prev) => {
-                    return { ...prev, ...newVal };
-                  });
-                  if (valuesChanged) valuesChanged({ ...values, ...newVal });
-                }
+                untranslatable.forEach(
+                  (l) => (newVal[fieldName.replace(currentLingo, l)] = fieldVal)
+                );
               }
+              if (Object.keys(newVal).length > 0) {
+                setValues((prev) => {
+                  return { ...prev, ...newVal };
+                });
+                if (valuesChanged) valuesChanged({ ...values, ...newVal });
+              }
+              if (preventSubmit) preventSubmit(false);
             });
+          } else {
+            if (preventSubmit) preventSubmit(false);
           }
         }
       }
@@ -194,15 +268,6 @@ export const DynamicForm = React.memo(
     };
 
     /*
-    Get the value from a nested object
-    */
-    const _getObjValue = (obj, path) => {
-      if (!path) return obj;
-      const properties = path.split(".");
-      return _getObjValue(obj[properties.shift()], properties.join("."));
-    };
-
-    /*
     For field groups where multiple can be added, this functions adds a new row of fields when triggered.
     */
     const _addFieldRow = (row) => {
@@ -226,7 +291,7 @@ export const DynamicForm = React.memo(
     const _returnFormField = (fields, locale, parent) => {
       let form = [];
       if (fields.length > 0) {
-        fields.map((field, idx) => {
+        fields.forEach((field, idx) => {
           let fieldname = "";
           if (parent !== undefined) {
             fieldname = `${fieldname}`;
@@ -257,13 +322,13 @@ export const DynamicForm = React.memo(
                   name={fieldname}
                   required={field.required}
                   handleChange={handleChange}
-                  _handleValidation={_handleValidation}
                   label={field.label}
                   maxLength={field.length}
-                  variant={field.variant}
                   value={fieldValue}
                   hint={field.hint}
-                  onBlur={_autoTranslate}
+                  onBlur={[field.onBlur, _autoTranslate]}
+                  personalisationFields={personalisationFields}
+                  variant={field.variant}
                 />
               );
               break;
@@ -351,6 +416,7 @@ export const DynamicForm = React.memo(
                   fieldsFunction={_returnFormField}
                   label={field.label}
                   value={values}
+                  personalisationFields={personalisationFields}
                 />
               );
               if (field.hasOwnProperty("count")) {
@@ -373,6 +439,8 @@ export const DynamicForm = React.memo(
               break;
 
             case "combo":
+              let blurFunctions = [field.onBlur];
+              if (field.translatable) blurFunctions.push(_autoTranslate);
               form.push(
                 <ComboBoxField
                   key={field.name + idx}
@@ -380,12 +448,16 @@ export const DynamicForm = React.memo(
                   name={fieldname}
                   required={field.required}
                   handleChange={handleChange}
+                  handleSearchQuery={handleSearchQuery}
                   label={field.label}
                   options={field.options}
-                  value={fieldValue}
+                  defaultSelectedKeys={fieldValue}
                   values={values}
                   placeholder={field.placeholder}
                   variant={field.variant}
+                  allowFreeform={field.allowFreeform}
+                  onBlur={blurFunctions}
+                  hint={field.hint}
                 />
               );
               break;
@@ -404,6 +476,10 @@ export const DynamicForm = React.memo(
                   type={"number"}
                   value={fieldValue}
                   values={values}
+                  personalisationFields={personalisationFields}
+                  onBlur={[field.onBlur, _validateOnBlur]}
+                  validationPattern={field.validationPattern}
+                  variant={field.variant}
                 />
               );
               break;
@@ -419,15 +495,38 @@ export const DynamicForm = React.memo(
                   label={field.label}
                   maxLength={field.length}
                   type={"hidden"}
+                  error={error}
                   borderless={true}
                   value={fieldValue}
                   values={values}
+                  personalisationFields={personalisationFields}
+                />
+              );
+              break;
+            case "password":
+              form.push(
+                <InputTextField
+                  key={field.name + idx}
+                  disabled={field.disabled}
+                  name={fieldname}
+                  required={field.required}
+                  handleChange={handleChange}
+                  label={field.label}
+                  maxLength={field.length}
+                  type={"password"}
+                  error={error}
+                  borderless={true}
+                  value={fieldValue}
+                  values={values}
+                  variant={field.variant}
+                  personalisationFields={personalisationFields}
+                  fieldAttributes={field.fieldAttributes}
                 />
               );
               break;
             case "richtext":
               form.push(
-                <RichTextEditor
+                <RichEditor
                   key={field.name + idx}
                   disabled={field.disabled}
                   placeholder={field.placeholder}
@@ -440,6 +539,7 @@ export const DynamicForm = React.memo(
                   hint={field.hint}
                   onBlur={_autoTranslate}
                   height={field.height}
+                  personalisationFields={personalisationFields}
                 />
               );
               break;
@@ -461,8 +561,17 @@ export const DynamicForm = React.memo(
                   inverted={field.inverted}
                   placeholder={field.placeholder}
                   icon={field.icon}
-                  hasPlaceholders={field.hasPlaceholders}
-                  onBlur={_autoTranslate}
+                  validationPattern={field.validationPattern}
+                  onBlur={[
+                    field.onBlur,
+                    _validateOnBlur,
+                    _uniqueValidationCheck,
+                    _autoTranslate,
+                  ]}
+                  personalisationFields={personalisationFields}
+                  unique={field.unique}
+                  inputValidation={validationError}
+                  hint={field.hint}
                 />
               );
               break;
@@ -496,29 +605,29 @@ export const DynamicForm = React.memo(
       let tabs = [];
       let filters = buildFilter(filter);
       let filteredInputs = filterData(formInputs, filters);
-      let lingos = getFromStorage("languages");
-      lingos.forEach((language, index) => {
-        tabs.push(
-          <PivotItem
-            headerText={language.code.toUpperCase()}
-            key={language.code}
-            headerButtonProps={{
-              "data-order": index + 1,
-              "data-title": `${language} content`,
-            }}
-            onRenderItemLink={(properties, nullableDefaultRenderer) => {
-              return (
-                <TooltipHost content={language.name}>
-                  {nullableDefaultRenderer(properties)}
-                </TooltipHost>
-              );
-            }}
-            styles={{ root: [{ height: "24px", display: "none" }] }}
-          >
-            {_returnFormField(filteredInputs, language.code)}
-          </PivotItem>
-        );
-      });
+      languages &&
+        languages.forEach((language, index) => {
+          tabs.push(
+            <PivotItem
+              headerText={language.code.toUpperCase()}
+              key={language.code}
+              headerButtonProps={{
+                "data-order": index + 1,
+                "data-title": `${language} content`,
+              }}
+              onRenderItemLink={(properties, nullableDefaultRenderer) => {
+                return (
+                  <TooltipHost content={language.name}>
+                    {nullableDefaultRenderer(properties)}
+                  </TooltipHost>
+                );
+              }}
+              styles={{ root: [{ height: "24px", display: "none" }] }}
+            >
+              {_returnFormField(filteredInputs, language.code)}
+            </PivotItem>
+          );
+        });
       return tabs;
     };
 
@@ -552,32 +661,52 @@ export const DynamicForm = React.memo(
       return filteredData;
     };
 
-    /*
-    Submit form when all fields are completed
-    */
-    const submitForm = (event) => {
-      event.preventDefault();
-      let data = unflatten(values);
+    const submitBind = function (event) {
+      let data = unflatten(stateRef.current);
       if (data.hasOwnProperty("translations")) {
         Object.keys(data.translations).forEach((key) => {
           data.translations[key]["locale"] = key;
         });
       }
-      onSubmit(data, history);
-      setTimeout(() => {
-        error === undefined
-          ? setSubmitStatus("success")
-          : setSubmitStatus("error");
-      }, 4000);
+      onSubmit(event, data, navigate);
     };
 
+    /*
+    Submit form when all fields are completed
+    */
+    const submitForm = (event) => {
+      setSubmitStatus("Submitted");
+      setTimeout(submitBind, translationsDelay, event);
+    };
+
+    /**
+     * Let's make sure we can enable submit button if validation is done externally and we encounter an error.
+     */
+    React.useEffect(() => {
+      if (disableSubmit === false) setSubmitStatus(null);
+    }, [disableSubmit]);
+
+    React.useEffect(
+      () =>
+        setValues((prev) => {
+          return { ...prev, ...inputValues };
+        }),
+      [inputValues]
+    );
+
+    React.useEffect(() => {
+      if (error === undefined) return;
+
+      setSubmitStatus("error");
+    }, [error]);
+
     return (
-      <form onSubmit={submitForm} style={{ width: "100%" }}>
+      <>
         <Stack
           styles={{ root: { width: formWidth } }}
           tokens={{ childrenGap: 15 }}
         >
-          {submitStatus !== null && (
+          {submitStatus !== null && error && (
             <MessageBar
               messageBarType={
                 submitStatus === "error"
@@ -586,11 +715,13 @@ export const DynamicForm = React.memo(
               }
               isMultiline={true}
               onDismiss={() => setSubmitStatus(null)}
-              dismissButtonAriaLabel='Close'
+              dismissButtonAriaLabel={intl.formatMessage({
+                id: "general.close",
+              })}
             >
               {submitStatus === "error"
-                ? "An error occured while trying to save your record. Please try again later"
-                : "Your work was successfully saved. You can now close this panel"}
+                ? intl.formatMessage({ id: "general.form.submit.error" })
+                : intl.formatMessage({ id: "general.form.submit.success" })}
             </MessageBar>
           )}
           {reverse ? (
@@ -599,7 +730,7 @@ export const DynamicForm = React.memo(
                 filterData(formInputs, buildFilter({ translatable: [false] }))
               )}
               {formInputs.filter((i) => i.translatable).length > 0 && (
-                <Pivot aria-label='multilingual-content' styles={pivotStyles}>
+                <Pivot aria-label="multilingual-content" styles={pivotStyles}>
                   {_returnTabItems({ translatable: [true] })}
                 </Pivot>
               )}
@@ -607,7 +738,7 @@ export const DynamicForm = React.memo(
           ) : (
             <>
               {formInputs.filter((i) => i.translatable).length > 0 && (
-                <Pivot aria-label='multilingual-content' styles={pivotStyles}>
+                <Pivot aria-label="multilingual-content" styles={pivotStyles}>
                   {_returnTabItems({ translatable: [true] })}
                 </Pivot>
               )}
@@ -618,7 +749,7 @@ export const DynamicForm = React.memo(
           )}
 
           {/* To do: Find a better way to load options when editing questions with choices */}
-          {Object.keys(arrayKeys).map((arrayKey) => {
+          {Object.keys(arrayKeys).forEach((arrayKey) => {
             for (let i = 0; i < arrayKeys[arrayKey]; i++) {
               _addFieldRow(arrayKey);
             }
@@ -627,17 +758,18 @@ export const DynamicForm = React.memo(
             <div>
               <Separator />{" "}
               <Button
-                content='Submit'
+                content={intl.formatMessage({ id: "general.form.submit" })}
                 flat
                 primary
-                type='submit'
-                loading={loading}
-                disabled={loading}
+                type="submit"
+                loading={loading || submitStatus !== null}
+                disabled={loading || disableSubmit || submitStatus !== null}
+                onMouseDown={submitForm}
               />
             </div>
           )}
         </Stack>
-      </form>
+      </>
     );
   }
 );

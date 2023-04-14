@@ -1,30 +1,25 @@
-import {
-  Flex,
-  FlexItem,
-  SearchIcon,
-  Input,
-  Text,
-  Segment,
-} from "@fluentui/react-northstar";
+import { Flex, SearchIcon, Input, Text } from "@fluentui/react-northstar";
 import React from "react";
+import { useIntl } from "react-intl";
 import { MenuItems } from "components/containers";
-import { Stack, StackItem, useTheme } from "@fluentui/react";
-import { LocaleSwitcher } from "components/localeSwitcher";
+import { Stack, useTheme } from "@fluentui/react";
+import { CancelIcon } from "@fluentui/react-icons-mdl2";
+import { FontSizes, FontWeights } from "@fluentui/theme";
 
 export function TableHeader({
-  menuActions,
-  filters,
-  searchFields,
   header,
   searchAction,
-  locale,
-  changeLocale,
+  searchQuery,
+  onDBSearch,
+  menuActions,
+  description,
 }) {
   const { palette } = useTheme();
+  const intl = useIntl();
   return (
     <>
-      <Stack horizontal style={{ marginTop: "20px" }}>
-        <StackItem grow={3}>
+      <Stack horizontal style={{ marginTop: "20px" }} horizontalAlign="end">
+        <Stack.Item grow={3}>
           <MenuItems
             items={menuActions}
             styles={{ root: { paddingLeft: "0px" } }}
@@ -32,16 +27,41 @@ export function TableHeader({
               {
                 key: "filters",
                 text: "Filter",
-                cacheKey: "myCacheKey", // changing this key will invalidate this item's cache
                 iconProps: { iconName: "Filter" },
               },
             ]}
           ></MenuItems>
-        </StackItem>
-        <StackItem grow={2}>
+        </Stack.Item>
+        <Stack.Item>
           <Input
-            fluid
-            icon={<SearchIcon />}
+            icon={
+              <>
+                {((onDBSearch && searchQuery.length > 0) ||
+                  searchQuery.length === 0) && (
+                  <SearchIcon
+                    styles={{ cursor: "pointer" }}
+                    onClick={(event) =>
+                      onDBSearch &&
+                      searchQuery.length > 0 &&
+                      onDBSearch(
+                        event.currentTarget.parentElement.previousSibling.value
+                      )
+                    }
+                  />
+                )}
+
+                {searchQuery.length > 0 && (
+                  <CancelIcon
+                    styles={{ cursor: "pointer" }}
+                    onClick={() =>
+                      onDBSearch && searchQuery.length > 0
+                        ? onDBSearch("")
+                        : searchAction("")
+                    }
+                  />
+                )}
+              </>
+            }
             variables={{
               borderColor: palette.themePrimary,
               borderRadius: 0,
@@ -51,22 +71,38 @@ export function TableHeader({
               backgroundColor: palette.white,
             }}
             style={{ marginTop: "5px" }}
-            placeholder='Search...'
-            onChange={(event) => searchAction(event, event.currentTarget.value)}
+            value={searchQuery}
+            placeholder={`${intl.formatMessage({
+              id: "general.list.search",
+            })}`}
+            onChange={(event) => searchAction(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              event.key === "Enter" &&
+                onDBSearch &&
+                onDBSearch(event.currentTarget.value);
+            }}
           />
-        </StackItem>
-        <StackItem style={{ marginTop: "5px", marginLeft: "10px" }}>
-          <LocaleSwitcher locale={locale} _onChange={changeLocale} />
-        </StackItem>
+        </Stack.Item>
+        <Stack.Item style={{ marginTop: "5px", marginLeft: "10px" }}>
+          {/* <LocaleSwitcher locale={locale} _onChange={changeLocale} /> */}
+        </Stack.Item>
       </Stack>
-      <Flex>
-        <Text
-          color='brand'
-          size='largest'
-          weight='bold'
-          style={{ marginTop: "40px", marginBottom: "10px" }}
-        >
+      <Flex
+        style={{
+          marginTop: "20px",
+        }}
+      >
+        <Text color="brand" size="largest" weight="bold">
           {header}
+        </Text>
+        <Text
+          style={{
+            fontSize: FontSizes.size16,
+            fontWeight: FontWeights.regular,
+            margin: "12px 0px 0px 23px",
+          }}
+        >
+          {description}
         </Text>
       </Flex>
     </>

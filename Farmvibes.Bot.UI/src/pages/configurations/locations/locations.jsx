@@ -3,7 +3,7 @@ import { connect } from "react-redux";
 import { styled } from "@fluentui/react";
 import { getStyles } from "components/layout/Sidebar/Nav/Nav.styles";
 import { Text } from "@fluentui/react-northstar";
-import { getFromStorage, makeListRequest } from "helpers/utils";
+import { makeListRequest, getPlatformComponents } from "helpers/utils";
 import {
   removeLocation,
   uploadLocations,
@@ -15,24 +15,22 @@ import {
 } from "redux/locations/actions";
 import { Table, PanelContainer } from "components/containers";
 import { UploadField } from "components/forms";
+import { FormattedMessage, useIntl } from "react-intl";
 
 const Locations = ({
   getLocationsAction,
-  createLocationAction,
-  updateLocationAction,
   uploadLocationsAction,
-  getLocationAction,
-  removeLocationAction,
   downloadTemplateAction,
   locations,
   loading,
 }) => {
-  const [locale, setLocale] = React.useState(getFromStorage("locale"));
-  const [buttonText, setButtonText] = React.useState("Click to attach file");
+  const intl = useIntl();
+  const [buttonText, setButtonText] = React.useState(
+    intl.formatMessage({ id: "general.form.file.uploadprompt" })
+  );
   const [columns, setColumns] = React.useState([]);
   const [lastLocationId, setLastLocationId] = React.useState([]);
   const [panelHidden, setPanelHidden] = React.useState(false);
-  const [inputValues, setInputValues] = React.useState({});
   const [panelContent, setPanelContent] = React.useState(null);
   const [panelTitle, setPanelTitle] = React.useState(null);
   let selected = [];
@@ -54,7 +52,7 @@ const Locations = ({
   const menuActions = [
     {
       key: "edit",
-      text: "Edit",
+      text: intl.formatMessage({ id: "general.edit" }, { subject: "" }),
       iconProps: { iconName: "Edit" },
       disabled: true,
       onClick: () => onItemInvoked(selected[0]),
@@ -62,23 +60,34 @@ const Locations = ({
     },
     {
       key: "upload",
-      text: "Import file",
+      text: intl.formatMessage({ id: "administrative.units.locations.import" }),
       iconProps: { iconName: "Upload" },
       onClick: () => {
-        setPanelTitle("Upload locations file");
+        setPanelTitle(
+          intl.formatMessage(
+            { id: "general.form.file.uploadnew" },
+            {
+              subject: intl.formatMessage({
+                id: "administrative.units.locations.file",
+              }),
+            }
+          )
+        );
         setPanelContent(
           <>
             <Text>
-              We will now attempt to upload the locations. This may take a bit
-              of time depending on the number of entries you have in your file.
-              Please make sure you used the template provided to guarantee the
-              success of this process.
+              <FormattedMessage id="administrative.units.locations.upload" />
             </Text>
             <UploadField
-              allowedTypes='application/vnd.ms-excel'
+              allowedTypes="application/vnd.ms-excel"
               buttonText={buttonText}
               handleFile={(file, name) => {
-                setButtonText(`Uploading ${name}`);
+                setButtonText(
+                  intl.formatMessage(
+                    { id: "general.form.file.uploading" },
+                    { status: name }
+                  )
+                );
                 const upload = new FormData();
                 upload.append("file", file);
                 upload.append("backup", false);
@@ -92,13 +101,16 @@ const Locations = ({
     },
     {
       key: "download",
-      text: "Download template",
+      text: intl.formatMessage(
+        { id: "genral.file.download" },
+        { file: intl.formatMessage({ id: "general.file.template" }) }
+      ),
       iconProps: { iconName: "Download" },
       onClick: () => downloadTemplateAction(),
     },
     {
       key: "delete",
-      text: "Remove",
+      text: intl.formatMessage({ id: "general.remove" }, { subject: "" }),
       iconProps: { iconName: "Delete" },
       disabled: true,
       activeCount: " > 0",
@@ -109,37 +121,47 @@ const Locations = ({
     if (columns.length > 0) return;
     let cols = [];
     makeListRequest({ url: "locations/ux_columns" }).then((response) => {
-      response["columns"].forEach((item) => {
-        cols.push({
+      response["columns"].forEach((item, idx) => {
+        let colObj = {
           name: item,
           fieldName: item.toLowerCase(),
           key: item.toLowerCase(),
           data: "string",
-          isRowHeader: true,
           isResizable: true,
           isMultiline: true,
           isSorted: false,
           isSortedDescending: false,
-          sortAscendingAriaLabel: "Sorted A to Z",
-          sortDescendingAriaLabel: "Sorted Z to A",
+          sortAscendingAriaLabel: intl.formatMessage({
+            id: "general.list.sort.az",
+          }),
+          sortDescendingAriaLabel: intl.formatMessage({
+            id: "general.list.sort.za",
+          }),
           onRender: (obj) => {
             if (obj.hasOwnProperty(item.toLowerCase()))
               return obj[item.toLowerCase()];
             else {
-              const type = getFromStorage("administrativeUnits").filter(
-                (unit) => unit.name.toLowerCase() === item.toLowerCase()
-              )[0];
-              let path = `[${obj.path}`;
-              path = path.substring(0, path.length - 1);
-              let jzPath = JSON.parse(`${path}]`);
-              let pathObj = jzPath.filter(
-                (pathItem) => pathItem.type === type.id
-              );
-              if (pathObj.length > 0) return pathObj[0].name;
-              return path.obj;
+              getPlatformComponents(
+                "administrative_units",
+                "administrativeUnits"
+              ).then((units) => {
+                const type = units.filter(
+                  (unit) => unit.name.toLowerCase() === item.toLowerCase()
+                )[0];
+                let path = `[${obj.path}`;
+                path = path.substring(0, path.length - 1);
+                let jzPath = JSON.parse(`${path}]`);
+                let pathObj = jzPath.filter(
+                  (pathItem) => pathItem.type === type.id
+                );
+                if (pathObj.length > 0) return pathObj[0].name;
+                return path.obj;
+              });
             }
           },
-        });
+        };
+        if (idx === 0) colObj[isRowHeader] = true;
+        cols.push(colObj);
       });
       setColumns(cols);
       setLastLocationId(response["id"]);
@@ -154,21 +176,22 @@ const Locations = ({
           items={locations}
           cols={columns}
           isCompactMode={false}
-          locale={locale}
           itemInvoked={onItemInvoked}
           menuActions={menuActions}
           getRecords={getLocationsAction}
           // itemRemove={onItemRemove}
-          header={"Locations"}
-          localeUpdate={setLocale}
+          header={intl.formatMessage(
+            { id: "administrative.units.locations" },
+            { count: 1 }
+          )}
           recordFilters={{ type: lastLocationId }}
         />
       )}
       {panelHidden && (
         <PanelContainer
           header={panelTitle}
-          panelWidth='546px'
-          panelType='custom'
+          panelWidth="546px"
+          panelType="custom"
           panelDismiss={onPanelDismiss}
           lightDismiss={false}
           content={panelContent}

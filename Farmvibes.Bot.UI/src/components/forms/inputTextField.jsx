@@ -1,12 +1,12 @@
 import React from "react";
-import { TextField, Stack, useTheme } from "@fluentui/react";
-import { getFromStorage } from "helpers/utils";
+import { TextField, Stack } from "@fluentui/react";
 import {
   Input,
   NotepadPersonIcon,
   MenuButton,
   Button,
 } from "@fluentui/react-northstar";
+import { useIntl } from "react-intl";
 
 export const InputTextField = ({
   name,
@@ -26,16 +26,25 @@ export const InputTextField = ({
   icon,
   styles,
   inverted,
-  variables,
   onBlur,
   hasPlaceholders = false,
+  personalisationFields,
+  inputValidation,
+  fieldAttributes,
+  validationPattern,
 }) => {
-  const { palette } = useTheme();
   const handlePlaceholderClick = (e, props) => {
     e.preventDefault();
     // Transforms.insertText(editor, ` #${props.content.split(" ")[1]}# `);
     handleChange(name, `${value} #${props.content.split(" ")[1]}# `);
   };
+
+  const intl = useIntl();
+
+  let error = inputValidation
+    ? inputValidation.filter((f) => f.field === name)
+    : [];
+
   return (
     <Stack>
       {variant === "default" && (
@@ -53,63 +62,81 @@ export const InputTextField = ({
           type={type}
           borderless={borderless}
           value={value}
-          onBlur={(e) => onBlur(e.currentTarget.name, e.currentTarget.value)}
+          onBlur={(e) => {
+            e.preventDefault();
+            onBlur &&
+              onBlur.forEach((f) => {
+                if (f !== undefined)
+                  f(e.currentTarget.name, e.currentTarget.value);
+              });
+          }}
         />
       )}
       {variant === "northstar" && (
-        <Input
-          required={required}
-          label={label}
-          icon={
-            hasPlaceholders ? (
-              <MenuButton
-                on='hover'
-                trigger={
-                  <Button
-                    icon={<NotepadPersonIcon />}
-                    text
-                    iconOnly
-                    title='Insert personalisation placeholders'
-                  />
-                }
-                menu={[
-                  {
-                    key: "firstname",
-                    content: `Insert firstname`,
-                    onClick: handlePlaceholderClick,
-                  },
-                  {
-                    key: "surname",
-                    content: `Insert surname`,
-                    onClick: handlePlaceholderClick,
-                  },
-                  ...getFromStorage("reg").map((question) => {
-                    return {
-                      key: question.description,
-                      content: `Insert ${question.description}`,
+        <>
+          <Input
+            required={required}
+            label={label}
+            type={type}
+            icon={
+              hasPlaceholders ? (
+                <MenuButton
+                  on="hover"
+                  trigger={
+                    <Button
+                      icon={<NotepadPersonIcon />}
+                      text
+                      iconOnly
+                      title={intl.formatMessage({
+                        id: "general.form.personalisation",
+                      })}
+                    />
+                  }
+                  menu={[
+                    {
+                      key: "firstname",
+                      content: intl.formatMessage({
+                        id: "general.form.personalisation.firstname",
+                      }),
                       onClick: handlePlaceholderClick,
-                    };
-                  }),
-                ]}
-              />
-            ) : (
-              icon
-            )
-          }
-          inverted={inverted}
-          styles={styles}
-          disabled={disabled}
-          fluid
-          clearable={false}
-          showSuccessIndicator={false}
-          multiline='true'
-          placeholder={placeholder}
-          value={value}
-          onChange={handleChange}
-          name={name}
-          type='string'
-          onBlur={(e) => onBlur(e.currentTarget.name, e.currentTarget.value)}
-        />
+                    },
+                    {
+                      key: "surname",
+                      content: intl.formatMessage({
+                        id: "general.form.personalisation.surname",
+                      }),
+                      onClick: handlePlaceholderClick,
+                    },
+                    ...personalisationFields,
+                  ]}
+                />
+              ) : (
+                icon
+              )
+            }
+            inverted={inverted}
+            styles={styles}
+            disabled={disabled}
+            fluid
+            clearable={false}
+            showSuccessIndicator={false}
+            multiline="true"
+            placeholder={placeholder}
+            value={value}
+            onChange={handleChange}
+            pattern={validationPattern}
+            name={name}
+            onBlur={(e) => {
+              e.preventDefault();
+              onBlur &&
+                onBlur.forEach((f) => {
+                  if (f !== undefined) f(e.currentTarget);
+                });
+            }}
+            error={error.length > 0}
+            {...fieldAttributes}
+          />
+        </>
       )}
     </Stack>
   );

@@ -20,6 +20,8 @@ import {
   removeValidation,
   createValidationAttribute,
 } from "../../../redux/actions";
+import { useLanguages } from "helpers/utilities";
+import { useIntl } from "react-intl";
 
 const Constraints = ({
   getValidationsAction,
@@ -30,7 +32,7 @@ const Constraints = ({
   validations,
   loading,
 }) => {
-  const [locale, setLocale] = React.useState(getFromStorage("locale"));
+  const { locale } = useLanguages();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogTitle, setDialogTitle] = React.useState("");
   const [dialogConfirmText, setDialogConfirmText] = React.useState("");
@@ -38,6 +40,7 @@ const Constraints = ({
   const [questionTypes, setQuestionTypes] = React.useState([]);
   const [attibutes, setAttibutes] = React.useState([]);
   const [activeValidation, setActiveValidation] = React.useState(null);
+  const intl = useIntl();
   const fetchRecords = React.useCallback((currentPage) => {
     getValidationsAction({ page: currentPage, itemsPerPage: 10 });
   });
@@ -57,17 +60,23 @@ const Constraints = ({
     });
   }, []);
   const addValidation = (action = null, group) => {
-    let title = "validation";
-    let confirmButtonText = "Create";
+    let title = intl.formatMessage({ id: "validation" }, { count: 1 });
+    let confirmButtonText = intl.formatMessage({ id: "general.create" });
     if (action !== null) {
       if (action.includes("edit")) {
-        title = `Edit ${title}`;
-        confirmButtonText = "Update";
+        title = intl.formatMessage({ id: "general.edit" }, { subject: title });
+        confirmButtonText = intl.formatMessage(
+          { id: "general.update" },
+          { subject: title }
+        );
       } else {
-        title = `Create ${title} item`;
+        title = intl.formatMessage(
+          { id: "validation.item.create" },
+          { item: title }
+        );
         setAttibutes([
           {
-            label: "Description",
+            label: intl.formatMessage({ id: "general.description" }),
             name: "description",
             key: "description",
             type: "string",
@@ -76,7 +85,9 @@ const Constraints = ({
             variant: "northstar",
           },
           {
-            label: "Default error message",
+            label: intl.formatMessage({
+              id: "validation.default.error.message",
+            }),
             name: "errorMessage",
             key: "errorMessage",
             type: "string",
@@ -85,9 +96,9 @@ const Constraints = ({
             variant: "northstar",
           },
           {
-            label: "Type",
+            label: intl.formatMessage({ id: "general.type" }),
             name: "type",
-            placeholder: "Type of validation",
+            placeholder: intl.formatMessage({ id: "validation.type" }),
             key: "type",
             type: "choice",
             required: true,
@@ -96,20 +107,20 @@ const Constraints = ({
             options: [
               {
                 key: "regex-type",
-                label: "Regex",
+                label: intl.formatMessage({ id: "validation.regex" }),
                 value: "Regex",
                 name: "type",
               },
               {
                 key: "expression-type",
-                label: "Expression",
+                label: intl.formatMessage({ id: "validation.expression" }),
                 value: "Expression",
                 name: "type",
               },
             ],
           },
           {
-            label: "Validation pattern or expression",
+            label: intl.formatMessage({ id: "validation.pattern" }),
             name: "expression",
             key: "expression",
             type: "string",
@@ -120,7 +131,7 @@ const Constraints = ({
         ]);
       }
     } else {
-      title = `Add ${title}`;
+      title = intl.formatMessage({ id: "general.add" }, { subject: title });
     }
     setDialogOpen(true);
     setDialogTitle(title);
@@ -154,9 +165,12 @@ const Constraints = ({
         addFunction={addValidation}
         removeFunction={removeValidationAction}
         loading={loading}
-        addFunctionTitle='Add validation group'
-        pageTitle='Validation groups'
-        pageDescription='List of input validations available on the application'
+        addFunctionTitle={intl.formatMessage(
+          { id: "general.edit" },
+          { subject: title }
+        )}
+        pageTitle={intl.formatMessage({ id: "general.edit" }, { count: 2 })}
+        pageDescription={intl.formatMessage({ id: "validation.available" })}
         childRow={"description"}
         groups={validations.map((item) => {
           return {
@@ -168,26 +182,26 @@ const Constraints = ({
             collapsible: false,
             header: (
               <Text
-                weight='bold'
+                weight="bold"
                 content={`${item.translations[locale]?.description}`}
-                size='large'
+                size="large"
               />
             ),
           };
         })}
         header={[
           {
-            content: "Description",
+            content: intl.formatMessage({ id: "general.description" }),
             styles: { flexGrow: 4 },
             key: "header-title-description",
           },
           {
-            content: "Created on",
+            content: intl.formatMessage({ id: "general.created.on" }),
             styles: { flexGrow: 1 },
             key: "header-title-created",
           },
           {
-            content: "Updated on",
+            content: intl.formatMessage({ id: "general.updated.on" }),
             styles: { flexGrow: 1 },
             key: "header-title-updated",
           },
@@ -195,11 +209,11 @@ const Constraints = ({
         ]}
       />
       <Dialog
-        cancelButton='Cancel'
+        cancelButton={intl.formatMessage({ id: "general.description" })}
         confirmButton={dialogConfirmText}
         onConfirm={() => {
           let data = unflatten(addTranslationLocale(formValues));
-          if (dialogConfirmText.toLocaleLowerCase().includes("create")) {
+          if (action.includes("create")) {
             if (!dialogTitle.toLocaleLowerCase().includes("item")) {
               addParent(data);
             } else {

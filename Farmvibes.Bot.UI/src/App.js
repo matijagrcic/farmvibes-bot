@@ -1,9 +1,14 @@
 import React, { Suspense } from "react";
-import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
+import { FormattedMessage, IntlProvider } from "react-intl";
+import { Route, Routes, useNavigate } from "react-router-dom";
 import { ProgressIndicator, styled } from "@fluentui/react";
 import { get, isArray, isNil, flattenDeep } from "lodash";
+import { CustomNavigationClient } from "helpers/utilities";
 import path from "path";
 import { AutoSwitchLayout } from "./components/layout";
+import { MsalProvider } from "@azure/msal-react";
+import "helpers/utilities/ensureBasename";
+import { useLocalStorage } from "react-use";
 import {
   AuthorizedRoute,
   RouteIndexList,
@@ -12,10 +17,19 @@ import {
 } from "./components/route";
 import { hierarchize } from "./global/hierarchical";
 import routes from "./routes";
+import { getFromStorage } from "helpers/utils";
 
 const keyName = "key";
 const pathName = "path";
 const uniqueKeyName = "uniqueKey";
+
+async function loadMessages(locale) {
+  try {
+    return require(`lang/${locale}.json`);
+  } catch (err) {
+    return import("lang/en.json");
+  }
+}
 
 function generateRoutePath(node, parent) {
   const parentUniqueKey = get(parent, uniqueKeyName);
@@ -38,22 +52,30 @@ function renderRoute(route) {
     : route.component;
 
   const routeComponent = (
-    <AuthorizedRoute
+    <Route
+      exact
+      path={`${route.path}/*`}
       key={route.uniqueKey}
-      path={route.path}
-      exact={route.exact || isArray(route.children)}
-      strict={route.strict}
-      isPublic={route.isPublic}
-    >
-      <PageComponent route={route} />
-    </AuthorizedRoute>
+      element={
+        <AuthorizedRoute children={route.children} isPublic={route.isPublic}>
+          <PageComponent route={route} />
+        </AuthorizedRoute>
+      }
+    />
   );
 
   const childComponents = isGroup ? route.children.map(renderRoute) : [];
   return [routeComponent, ...childComponents];
 }
 
-function App({ theme }) {
+function App({ theme, pca }) {
+  const navigate = useNavigate();
+  const navigationClient = new CustomNavigationClient(navigate);
+  pca.setNavigationClient(navigationClient);
+  //We will use the top level language codes at the moment.
+  let initLocale =
+    getFromStorage("locale") ||
+    navigator.language.substring(0, navigator.language.indexOf("-"));
   const { semanticColors } = theme;
   React.useLayoutEffect(() => {
     document.body.style.backgroundColor = semanticColors.bodyBackground;
@@ -64,21 +86,38 @@ function App({ theme }) {
 
   const routeComponents = renderRoute(routeList);
   const flatRouteComponents = flattenDeep(routeComponents);
+  const [locale, setLocale] = useLocalStorage("locale", initLocale);
+  const [messages, setMessages] = React.useState(null);
 
-  return (
-    <Router basename='/admin'>
-      <AutoSwitchLayout>
-        <Suspense fallback={<ProgressIndicator label='Page loading...' />}>
-          <Switch>
-            {flatRouteComponents}
-            <Route path='*'>
-              <NoMatch />
-            </Route>
-          </Switch>
-        </Suspense>
-      </AutoSwitchLayout>
-    </Router>
-  );
+  React.useEffect(() => {
+    // if (!getFromStorage("locale")) setToStorage("locale", locale);
+    loadMessages(locale).then(setMessages);
+  }, [locale]);
+
+  return messages ? (
+    <MsalProvider instance={pca}>
+      <IntlProvider locale={locale} messages={messages}>
+        <AutoSwitchLayout
+          onLocaleChange={(locale) => {
+            setLocale(locale);
+          }}
+        >
+          <Suspense
+            fallback={
+              <ProgressIndicator
+                label={<FormattedMessage id="general.page.loading" />}
+              />
+            }
+          >
+            <Routes>
+              {flatRouteComponents}
+              <Route path="*" element={<NoMatch />} />
+            </Routes>
+          </Suspense>
+        </AutoSwitchLayout>
+      </IntlProvider>
+    </MsalProvider>
+  ) : null;
 }
 
 export default styled(App);

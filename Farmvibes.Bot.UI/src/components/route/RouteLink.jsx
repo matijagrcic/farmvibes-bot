@@ -1,13 +1,13 @@
 import React from "react";
-import { Link } from "@fluentui/react";
-import { useHistory } from "react-router-dom";
+import { Button, Link } from "@fluentui/react";
+import { useNavigate } from "react-router-dom";
 
 export function RouteLink(props) {
-  const history = useHistory();
+  const navigate = useNavigate();
   const handleClick = (e) => {
     e.preventDefault();
-    props.href && history.push(props.href);
+    props.href && navigate(props.href);
   };
 
-  return <Link {...props} onClick={handleClick} />;
+  return <Link {...props} onClick={handleClick} as={Button} />;
 }

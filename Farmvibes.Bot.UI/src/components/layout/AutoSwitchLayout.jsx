@@ -1,11 +1,20 @@
 import React from "react";
-import { useAuthentication } from "global/authentication";
+import {
+  AuthenticatedTemplate,
+  UnauthenticatedTemplate,
+} from "@azure/msal-react";
 import { MasterLayout } from "./MasterLayout";
 import { BlankLayout } from "./BlankLayout";
 
-export function AutoSwitchLayout({ children }) {
-  const { isAuthenticated } = useAuthentication();
-  const Layout = isAuthenticated ? MasterLayout : BlankLayout;
-
-  return <Layout>{children}</Layout>;
+export function AutoSwitchLayout({ children, onLocaleChange }) {
+  return (
+    <>
+      <AuthenticatedTemplate>
+        <MasterLayout onLocaleChange={onLocaleChange}>{children}</MasterLayout>
+      </AuthenticatedTemplate>
+      <UnauthenticatedTemplate>
+        <BlankLayout>{children}</BlankLayout>
+      </UnauthenticatedTemplate>
+    </>
+  );
 }

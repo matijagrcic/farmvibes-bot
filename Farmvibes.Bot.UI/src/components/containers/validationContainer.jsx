@@ -9,10 +9,12 @@ import {
 } from "@fluentui/react-northstar";
 import { Stack } from "@fluentui/react";
 import { useDispatch } from "react-redux";
+import { FormattedMessage, useIntl } from "react-intl";
 import { removeQuestionValidation } from "redux/actions";
 
 export const ValidationContainer = ({ locale, validations, editAttr }) => {
   const dispatch = useDispatch();
+  const intl = useIntl();
 
   return (
     <Stack
@@ -26,9 +28,12 @@ export const ValidationContainer = ({ locale, validations, editAttr }) => {
       <>
         <Text
           content={
-            validations.length > 0
-              ? `The following ${validations.length} will be applied to verify every user response to this question`
-              : `No validation specified for this question.`
+            validations?.length > 0
+              ? intl.formatMessage(
+                  { id: "validation.intro.exists" },
+                  { count: validations?.length }
+                )
+              : intl.formatMessage({ id: "validation.intro.notexists" })
           }
           styles={{ fontSize: "0.875rem", paddingBottom: "1rem" }}
         />
@@ -53,31 +58,51 @@ export const ValidationContainer = ({ locale, validations, editAttr }) => {
                     icon={<EditIcon />}
                     iconOnly
                     text
-                    title='Edit'
+                    title={intl.formatMessage(
+                      { id: "general.edit" },
+                      { subject: "" }
+                    )}
                     onClick={() =>
                       editAttr(
                         validation.validationAttribute,
                         validation,
-                        "Update"
+                        intl.formatMessage(
+                          { id: "general.update" },
+                          { subject: "" }
+                        )
                       )
                     }
                   />
                 </Stack.Item>
                 <Stack.Item>
                   <Dialog
-                    cancelButton='Cancel'
-                    confirmButton='Remove'
+                    cancelButton={intl.formatMessage({ id: "general.cancel" })}
+                    confirmButton={intl.formatMessage(
+                      { id: "general.remove" },
+                      { subject: "" }
+                    )}
                     onConfirm={() =>
                       dispatch(removeQuestionValidation(validation.id))
                     }
-                    header='Remove validation'
-                    content='Are you sure you want to delete this validation?'
+                    header={intl.formatMessage(
+                      { id: "general.remove" },
+                      { subject: intl.formatMessage({ id: "validation" }) }
+                    )}
+                    content={intl.formatMessage(
+                      { id: "general.remove.confirm" },
+                      { subject: "" }
+                    )}
                     trigger={
                       <Button
                         icon={<TrashCanIcon />}
                         iconOnly
                         text
-                        title='Remove'
+                        title={
+                          <FormattedMessage
+                            id="general.remove"
+                            values={{ subject: "" }}
+                          />
+                        }
                       />
                     }
                   />

@@ -1,30 +1,40 @@
-import * as React from 'react';
-import { Dialog, DialogType, DialogFooter, PrimaryButton, DefaultButton } from '@fluentui/react';
+import * as React from "react";
 
-export const DialogBox = ({content, title, leadingText,  showDialog, proceedFunction, dialogHidden, confirm, cancel, params}) => {
-  const modelProps = {
-        isBlocking: false,
-        styles: { main: { maxWidth: 450 } },
-      };
+import { CloseIcon, Dialog } from "@fluentui/react-northstar";
+import { useIntl } from "react-intl";
 
-    const dialogContentProps = {
-        type: DialogType.largeHeader,
-        title: title,
-        subText: leadingText,
-      };
+export const DialogBox = ({
+  content,
+  title,
+  showDialog,
+  proceedFunction,
+  dialogHidden,
+  confirm,
+  cancel,
+  params,
+}) => {
+  const intl = useIntl();
   return (
     <>
       <Dialog
-        dialogContentProps={dialogContentProps}
-        modalProps={modelProps}
-        hidden={dialogHidden}
-      >
-        {content}
-        <DialogFooter>
-          <PrimaryButton onClick={() => { proceedFunction(params); showDialog()}} text={confirm} />
-          <DefaultButton onClick={() => showDialog()} text={cancel} />
-        </DialogFooter>
-      </Dialog>
+        cancelButton={cancel}
+        confirmButton={confirm}
+        content={content}
+        header={title}
+        open={dialogHidden}
+        onCancel={() => {
+          showDialog();
+        }}
+        onConfirm={() => {
+          proceedFunction(params);
+          showDialog();
+        }}
+        headerAction={{
+          icon: <CloseIcon />,
+          title: intl.formatMessage({ id: "general.close" }),
+          onClick: () => showDialog(),
+        }}
+      />
     </>
   );
 };

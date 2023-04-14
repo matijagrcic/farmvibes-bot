@@ -1,5 +1,4 @@
 import React from "react";
-import { FontSizes, FontWeights } from "@fluentui/theme";
 import { connect } from "react-redux";
 import { getStyles } from "components/layout/Sidebar/Nav/Nav.styles";
 import {
@@ -10,10 +9,12 @@ import {
   removeAdministrativeUnit,
 } from "../../../redux/actions";
 import { Table, PanelContainer, DialogBox } from "components/containers";
-import { getTheme, Stack, styled } from "@fluentui/react";
+import { styled } from "@fluentui/react";
 import { DynamicForm } from "components/forms";
 import { addAdministrativeUnit } from "global/defaultValues";
-import { flat, getFromStorage } from "helpers/utils";
+import { capitaliseSentense, flat } from "helpers/utils";
+import { useLanguages } from "helpers/utilities";
+import { useIntl } from "react-intl";
 
 const AdministrativeUnits = ({
   loading,
@@ -25,12 +26,13 @@ const AdministrativeUnits = ({
   removeAdministrativeUnitAction,
   error,
 }) => {
-  const [locale, setLocale] = React.useState(getFromStorage("locale"));
+  const { locale } = useLanguages();
+  const intl = useIntl();
   const [panelHidden, setPanelHidden] = React.useState(false);
   const [panelTitle, setPanelTitle] = React.useState("");
   const [formValues, setFormValues] = React.useState({});
   const [persistStatus, setPersistStatus] = React.useState(undefined);
-  const [dialogHidden, setDialogHidden] = React.useState(true);
+  const [dialogHidden, setDialogHidden] = React.useState(false);
   const [dialogTitle, setDialogTitle] = React.useState("");
   const [dialogContent, setDialogContent] = React.useState([]);
   const [dialogProceedFunction, setDialogProceedFunction] =
@@ -38,11 +40,36 @@ const AdministrativeUnits = ({
   const [dialogProceedFunctionParams, setDialogProceedFunctionParams] =
     React.useState({});
   let selected = [];
+  const addAdministrativeUnit = [
+    {
+      name: intl.formatMessage({ id: "general.name" }),
+      key: "name",
+      required: true,
+      length: 50,
+      type: "string",
+      label: intl.formatMessage({ id: "general.name" }),
+      translatable: false,
+    },
+    {
+      name: "parent",
+      key: "parent",
+      required: false,
+      length: 3,
+      type: "dropdown",
+      label: intl.formatMessage({ id: "general.parent" }),
+      translatable: false,
+    },
+  ];
   //We need to add options to administrative unit's parent drowdown.
   addAdministrativeUnit.map((field) => {
     if (field.name === "parent") {
-      field["options"] = getFromStorage("administrativeUnits").map((unit) => {
-        return { key: unit.id, text: unit.name };
+      field["options"] = getPlatformComponents(
+        "administrative_units",
+        "administrativeUnits"
+      ).then((units) => {
+        return units.map((unit) => {
+          return { key: unit.id, text: unit.name };
+        });
       });
     }
     return field;
@@ -59,17 +86,27 @@ const AdministrativeUnits = ({
   const menuActions = [
     {
       key: "newItem",
-      text: "New",
+      text: intl.formatMessage({ id: "general.new" }, { subject: "" }),
       cacheKey: "myCacheKey", // changing this key will invalidate this item's cache
       iconProps: { iconName: "Add" },
       onClick: () => {
-        setPanelTitle("Add AdministrativeUnit");
+        setPanelTitle(
+          intl.formatMessage(
+            { id: "general.add" },
+            {
+              subject: intl.formatMessage(
+                { id: "administrative.units" },
+                { count: 1 }
+              ),
+            }
+          )
+        );
         showPanel();
       },
     },
     {
       key: "edit",
-      text: "Edit",
+      text: intl.formatMessage({ id: "general.edit" }, { subject: "" }),
       iconProps: { iconName: "Edit" },
       disabled: true,
       onClick: () => onItemInvoked(selected[0]),
@@ -77,7 +114,7 @@ const AdministrativeUnits = ({
     },
     {
       key: "delete",
-      text: "Delete",
+      text: intl.formatMessage({ id: "general.delete" }, { subject: "" }),
       iconProps: { iconName: "Delete" },
       disabled: true,
       activeCount: " > 0",
@@ -86,7 +123,7 @@ const AdministrativeUnits = ({
 
   const columns = [
     {
-      name: "Name",
+      name: intl.formatMessage({ id: "general.name" }),
       fieldName: `name`,
       key: `name`,
       data: "string",
@@ -95,21 +132,38 @@ const AdministrativeUnits = ({
       isMultiline: true,
       isSorted: false,
       isSortedDescending: false,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
     },
     {
-      name: "Parent",
+      name: intl.formatMessage({ id: "general.parent" }),
       fieldName: `parent`,
       key: `parent`,
       data: "string",
-      isRowHeader: true,
       isResizable: true,
       isMultiline: true,
       isSorted: false,
       isSortedDescending: false,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
+      onRender: (item) => {
+        if (item.parent !== undefined) {
+          let un = administrativeUnits.filter(
+            (unit) =>
+              unit.id ===
+              parseInt(item.parent.substring(item.parent.lastIndexOf("/") + 1))
+          );
+          return un.length > 0 ? un[0].name : null;
+        } else return;
+      },
     },
   ];
 
@@ -118,7 +172,7 @@ const AdministrativeUnits = ({
   };
 
   const onItemInvoked = (item) => {
-    setPanelTitle("Edit item");
+    setPanelTitle(intl.formatMessage({ id: "general.edit" }, { subject: "" }));
     let temp = flat(item);
     setFormValues(
       Object.keys(temp).reduce((res, key) => {
@@ -132,10 +186,20 @@ const AdministrativeUnits = ({
   const onItemRemove = (item) => {
     toggleDialog();
     setDialogProceedFunctionParams(item);
-    setDialogTitle("Remove Administrative Unit");
+    setDialogTitle(
+      intl.formatMessage(
+        { id: "general.remove" },
+        {
+          subject: intl.formatMessage(
+            { id: "administrative.units" },
+            { count: 1 }
+          ),
+        }
+      )
+    );
     setDialogProceedFunction(() => removeAdministrativeUnitAction);
     setDialogContent(
-      "You are about to remove an administrative unit. This may have adverse effects in cases where content is tagged to this unit. Constraints restricting content and users within this unit will also be removed. Would you still like to proceed?"
+      intl.formatMessage({ id: "administrative.units.remove.confirm" })
     );
   };
 
@@ -164,7 +228,9 @@ const AdministrativeUnits = ({
         cols={columns}
         isCompactMode={false}
         locale={locale}
-        header={"Administrative Units"}
+        header={capitaliseSentense(
+          intl.formatMessage({ id: "administrative.units" }, { count: 2 })
+        )}
       />
       {panelTitle.length > 0 && (
         <PanelContainer
@@ -188,7 +254,9 @@ const AdministrativeUnits = ({
               inputValues={formValues}
             />
           }
-          description='The platform allows you to create all levels of administration within your country. Adding an administrative unit here will make it available for users when registering on the platform and allow you to customise availability of content within these units.'
+          description={intl.formatMessage({
+            id: "administrative.units.description",
+          })}
         />
       )}
       <DialogBox
@@ -196,8 +264,8 @@ const AdministrativeUnits = ({
         dialogHidden={dialogHidden}
         showDialog={toggleDialog}
         content={dialogContent}
-        cancel='Cancel'
-        confirm='Confirm'
+        cancel={intl.formatMessage({ id: "general.cancel" })}
+        confirm={intl.formatMessage({ id: "general.confirm" })}
         proceedFunction={dialogProceedFunction}
         params={dialogProceedFunctionParams}
       />

@@ -82,15 +82,16 @@ const reducer = (state = initialState, action) => {
         loading: false,
       };
     case UPDATE_CHANNEL_SUCCESS:
-      const idx = state.channels.findIndex(
-        (lingo) => state.channel.channel.code === lingo.code
-      );
-      state.channels.splice(idx, 1, action.payload.channel);
-      setToStorage("channels", state.channels);
+      let newVal = state.channels.map((itm) => {
+        return itm.id === action.payload.channel.id
+          ? action.payload.channel
+          : itm;
+      });
+      setToStorage("channels", newVal);
       return {
         ...state,
         channel: action.payload.channel,
-        channels: state.channels,
+        channels: newVal,
         loading: false,
       };
     case REMOVE_CHANNEL:
@@ -106,8 +107,8 @@ const reducer = (state = initialState, action) => {
         loading: false,
       };
     case REMOVE_CHANNEL_SUCCESS:
-      const remaining = state.channels.filter((lingo) => {
-        return lingo.code !== state.channel.channel.code;
+      const remaining = state.channels.filter((c) => {
+        return c.id !== state.channel.channel.id;
       });
       setToStorage("channels", remaining);
       return {

@@ -19,6 +19,8 @@ export const TextareaField = ({
   _handleValidation,
   handleChange,
   hint,
+  personalisationFields,
+  height,
 }) => (
   <Stack>
     {variant === "default" && (
@@ -37,14 +39,20 @@ export const TextareaField = ({
           defaultValue={defaultValue}
           autoAdjustHeight
           maxLength={maxLength}
-          onBlur={(e) => onBlur(e.currentTarget.name, e.currentTarget.value)}
+          onBlur={(e) => {
+            e.preventDefault();
+            onBlur &&
+              onBlur.forEach((f) => {
+                if (f !== undefined) f(e.currentTarget);
+              });
+          }}
           onGetErrorMessage={(value) =>
             required ? _handleValidation(value, maxLength) : ""
           }
           validateOnLoad={false}
           value={value}
         />
-        <Text color='grey' content={hint} disabled temporary />{" "}
+        <Text color="grey" content={hint} disabled temporary />{" "}
       </>
     )}
     {variant === "northstar" && (
@@ -56,7 +64,16 @@ export const TextareaField = ({
           defaultValue={value}
           required={required}
           name={name}
-          onBlur={(e) => onBlur(e.currentTarget.name, e.currentTarget.value)}
+          variables={{
+            height,
+          }}
+          onBlur={(e) => {
+            e.preventDefault();
+            onBlur &&
+              onBlur.forEach((f) => {
+                if (f !== undefined) f(e.currentTarget);
+              });
+          }}
         />
       </>
     )}

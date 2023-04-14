@@ -6,35 +6,44 @@ import {
   createService,
   removeService,
   updateService,
+  updateServiceObj,
+  resetServiceObj,
 } from "redux/service/actions";
 import { connect } from "react-redux";
 import { styled } from "@fluentui/react";
-import { ItemStatus } from "components/general";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Table, PanelContainer, DialogBox } from "components/containers";
+import { Button, BanIcon, AcceptIcon } from "@fluentui/react-northstar";
+import { useIntl } from "react-intl";
 
 import {
   unflatten,
   addTranslationLocale,
-  getFromStorage,
+  getPlatformComponents,
   flat,
+  capitaliseSentense,
 } from "helpers/utils";
-import { ServiceForm } from "components/forms";
+import ServiceForm from "components/forms/serviceForm";
+import { useServiceTypes } from "helpers/utilities/serviceTypes";
+import { useLocalStorage } from "react-use-storage";
 
 const Services = ({
   getServicesAction,
   createServiceAction,
   updateServiceAction,
-  getServiceAction,
   removeServiceAction,
+  updateServiceObjAction,
+  resetServiceObjAction,
   services,
   loading,
 }) => {
-  const history = useHistory();
-  const [locale, setLocale] = React.useState(getFromStorage("locale"));
+  const { serviceTypes } = useServiceTypes();
+  const navigate = useNavigate();
+  const intl = useIntl();
+  const [locale] = useLocalStorage("locale");
   const columns = [
     {
-      name: "Name",
+      name: intl.formatMessage({ id: "general.name" }),
       key: `label`,
       fieldName: `label`,
       data: "string",
@@ -42,85 +51,128 @@ const Services = ({
       isRowHeader: true,
       isResizable: true,
       isSorted: false,
+      ariaLabel: intl.formatMessage({ id: "service" }, { count: 1 }),
       isSortedDescending: false,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
       onRender: (item) => {
         return item.translations[locale].name;
       },
     },
     {
-      name: "Type",
+      name: intl.formatMessage({ id: "general.type" }),
       fieldName: "type",
       key: "type",
       data: "string",
-      isRowHeader: true,
       isResizable: true,
       isSorted: false,
       isSortedDescending: false,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
+      ariaLabel: intl.formatMessage({ id: "general.type" }, { count: 1 }),
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.az",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.za",
+      }),
       onRender: (item) => {
-        if (item.type.translations !== undefined) {
-          return item.type.translations[locale].name;
-        }
+        if (serviceTypes === undefined) return;
+
+        let stype = serviceTypes.filter((type) => {
+          let itmId = parseInt(
+            item.type.substring(item.type.lastIndexOf("/") + 1)
+          );
+          return type.id === itmId;
+        });
+
+        if (stype.length > 0) return stype[0].translations[locale]?.name;
+        return;
       },
     },
     {
       fieldName: "isPublished",
-      name: "Status",
+      name: intl.formatMessage({ id: "general.status" }),
       key: "isPublished",
       data: "boolean",
-      isRowHeader: true,
+      minWidth: 150,
       isResizable: true,
       isSorted: false,
       isSortedDescending: false,
-      sortAscendingAriaLabel: "Sorted A to Z",
-      sortDescendingAriaLabel: "Sorted Z to A",
       onRender: (item) => {
         return (
-          <ItemStatus
-            text={item.isPublished ? `Published` : `Not published`}
-            status={item.isPublished ? "success" : "error"}
-            field='Publish status'
+          <Button
+            icon={item.isPublished ? <AcceptIcon /> : <BanIcon />}
+            text
+            content={capitaliseSentense(
+              item.isPublished
+                ? intl.formatMessage({
+                    id: "general.list.item.status.published",
+                  })
+                : intl.formatMessage({
+                    id: "general.list.item.status.draft",
+                  })
+            )}
+            onClick={() => publishService(item)}
+            disabled={item.isDefault}
           />
         );
       },
     },
     {
-      name: "Created on",
+      name: intl.formatMessage({ id: "general.created.on" }),
       key: "createdAt",
       fieldName: "createdAt",
       data: "string",
-      isRowHeader: true,
       isResizable: true,
       isSorted: true,
       minWidth: 150,
       isSortedDescending: true,
-      sortAscendingAriaLabel: "Sorted oldest to newest",
-      sortDescendingAriaLabel: "Sorted newest to oldest",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.newest",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.oldest",
+      }),
       onRender: (dt) => {
-        return new Date(dt.createdAt).toLocaleString();
+        return intl.formatDate(new Date(dt.createdAt), {
+          year: "numeric",
+          month: "short",
+          hour: "numeric",
+          minute: "numeric",
+          day: "numeric",
+        });
       },
     },
     {
-      name: "Last update",
+      name: intl.formatMessage({ id: "general.updated.on" }),
       key: "updatedAt",
       fieldName: "updatedAt",
       data: "string",
-      isRowHeader: true,
       isResizable: true,
       isSorted: true,
       minWidth: 150,
       isSortedDescending: true,
-      sortAscendingAriaLabel: "Sorted oldest to newest",
-      sortDescendingAriaLabel: "Sorted newest to oldest",
+      sortAscendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.newest",
+      }),
+      sortDescendingAriaLabel: intl.formatMessage({
+        id: "general.list.sort.oldest",
+      }),
       onRender: (dt) => {
-        return new Date(dt.updatedAt).toLocaleString();
+        return intl.formatDate(new Date(dt.updatedAt), {
+          year: "numeric",
+          month: "short",
+          hour: "numeric",
+          minute: "numeric",
+          day: "numeric",
+        });
       },
     },
   ];
-  const [dialogHidden, setDialogHidden] = React.useState(true);
+  const [dialogHidden, setDialogHidden] = React.useState(false);
   const [panelHidden, setPanelHidden] = React.useState(false);
   const [dialogContent, setDialogContent] = React.useState(null);
   const [dialogTitle, setDialogTitle] = React.useState(null);
@@ -135,27 +187,41 @@ const Services = ({
   stateRef.current = inputValues;
 
   let selected = [];
+
   const updateValues = (values) => {
-    console.log({ values });
-    setInputValues(values);
+    setInputValues((prev) => {
+      return { ...prev, ...values };
+    });
   };
   const onItemInvoked = (item) => {
     //let's remove service type becaue we have an object, but make sure we keep name
-    item["type"] = `/api/service_types/${item.type.id}`;
+    // item["type"] = `${item.type.id}`;
     const toEdit = flat(item);
+    updateServiceObjAction(toEdit);
     setInputValues(flat(item));
-    setDialogTitle("Update service");
-    const serviceTypes = getFromStorage("serviceTypes").map((type) => {
-      return { text: type.name, key: `/api/service_types/${type.id}` };
-    });
-
+    setDialogTitle(
+      intl.formatMessage({ id: "general.update" }, { subject: "" })
+    );
     setDialogContent(
       <ServiceForm
         action={newService}
-        inputValues={toEdit}
-        serviceTypes={serviceTypes}
+        serviceTypes={getPlatformComponents(
+          "service_types?groups[]=translations",
+          "serviceTypes"
+        ).then((types) => {
+          return types
+            .filter((x) => x.isHidden === false)
+            .map((type) => {
+              return {
+                header: type.name,
+                key: `/api/service_types/${type.id}`,
+                disabled: type.isDisabled,
+              };
+            });
+        })}
         updateValues={updateValues}
-        btnLabel='Update service'
+        btnLabel={intl.formatMessage({ id: "general.update" }, { subject: "" })}
+        panelDismiss={onPanelDismiss}
       />
     );
     togglePanel();
@@ -167,7 +233,8 @@ const Services = ({
   };
 
   const onPanelDismiss = () => {
-    togglePanel();
+    setPanelHidden(false);
+    resetServiceObjAction();
   };
 
   const togglePanel = () => {
@@ -175,14 +242,21 @@ const Services = ({
   };
 
   const onItemRemove = (item) => {
-    console.log(item);
     toggleDialog();
     setDialogProceedFunctionParams(item);
-    setDialogTitle("Remove service");
-    setDialogProceedFunction(() => removeServiceAction);
-    setDialogContent(
-      "You are about to remove a service. If the service is attached to a menu, it will no-longer appear to it's relevant users. All related questions, translations and other related configuration will be deleted. Would you still like to proceed?"
+    setDialogTitle(
+      intl.formatMessage(
+        { id: "general.remove" },
+        { subject: intl.formatMessage({ id: "service" }, { count: 1 }) }
+      )
     );
+    if (item.isSystem) {
+      setDialogContent(intl.formatMessage({ id: "service.delete.blocked" }));
+      setDialogProceedFunction(() => null);
+    } else {
+      setDialogProceedFunction(() => removeServiceAction);
+      setDialogContent(intl.formatMessage({ id: "service.delete.confirm" }));
+    }
   };
 
   const updateSelected = (items) => {
@@ -191,109 +265,168 @@ const Services = ({
   const menuActions = [
     {
       key: "newItem",
-      text: "Add service",
-      cacheKey: "myCacheKey", // changing this key will invalidate this item's cache
+      text: intl.formatMessage(
+        { id: "general.add" },
+        { subject: intl.formatMessage({ id: "service" }, { count: 1 }) }
+      ),
       iconProps: { iconName: "Add" },
       onClick: () => {
-        setDialogTitle("Create a new service");
-        const serviceTypes = getFromStorage("serviceTypes").map((type) => {
-          return { text: type.name, key: `/api/service_types/${type.id}` };
-        });
-        var cnt = (
-          <ServiceForm
-            action={newService}
-            inputValues={{
-              ...inputValues,
-              ...{ singleAccess: false, backAfterCompletion: true },
-            }}
-            serviceTypes={serviceTypes}
-            updateValues={updateValues}
-            btnLabel='Create service'
-          />
+        getPlatformComponents("service_types", "serviceTypes").then(
+          (result) => {
+            setDialogTitle(intl.formatMessage({ id: "service.create" }));
+            let cnt = (
+              <ServiceForm
+                action={newService}
+                inputValues={{
+                  ...inputValues,
+                  ...{ singleAccess: false, backAfterCompletion: true },
+                }}
+                serviceTypes={result
+                  .filter((x) => x.isHidden === false)
+                  .map((type) => {
+                    return {
+                      header: type.name,
+                      key: `/api/service_types/${type.id}`,
+                      disabled: type.isDisabled,
+                    };
+                  })}
+                updateValues={updateValues}
+                btnLabel={intl.formatMessage(
+                  { id: "general.add" },
+                  {
+                    subject: intl.formatMessage(
+                      { id: "service" },
+                      { count: 1 }
+                    ),
+                  }
+                )}
+                panelDismiss={onPanelDismiss}
+              />
+            );
+            setDialogContent(cnt);
+
+            togglePanel();
+            type = "create";
+          }
         );
-        setDialogContent(cnt);
-        togglePanel();
-        type = "create";
       },
     },
     {
       key: "edit",
-      text: "Edit service",
+      text: intl.formatMessage(
+        { id: "general.edit" },
+        {
+          subject: intl.formatMessage({ id: "service" }, { count: 1 }),
+        }
+      ),
       iconProps: { iconName: "Edit" },
       disabled: true,
       onClick: () => onItemInvoked(selected[0]),
       activeCount: " === 1",
     },
     {
-      key: "publish",
-      text: "Publish service",
-      iconProps: { iconName: "PublishContent" },
-      disabled: true,
-      onClick: () => {
-        setDialogTitle(`Publish ${selected[0].translations[locale]["label"]}`);
-        toggleDialog();
-      },
-      activeCount: " === 1",
-    },
-    {
       key: "delete",
-      text: "Remove service",
+      text: intl.formatMessage(
+        { id: "general.remove" },
+        {
+          subject: intl.formatMessage({ id: "service" }, { count: 1 }),
+        }
+      ),
       iconProps: { iconName: "Delete" },
       disabled: true,
       activeCount: " > 0",
+      onClick: () => onItemRemove(selected[0]),
     },
   ];
 
   const newService = () => {
     //Flatten translated fields
     const unflattened = unflatten(addTranslationLocale(stateRef.current));
+
     //Format constraints. This will be improved once Paul completes API
     //For now, we probably will have constraints fetched on user-login and then
     //read from there
 
-    const constraints =
-      getFromStorage("constraints") ??
-      getFromStorage("constraints").map((constraint) => {
+    const constraints = getPlatformComponents(
+      "service_types",
+      "serviceTypes"
+    ).then((result) => {
+      return result.reduce((arr, constraint) => {
         if (
           Object.keys(unflattened).findIndex((key) => key === constraint.entity)
         ) {
-          return {
+          arr.push({
             constaintItem: `/api/constraints/${constraint.id}`,
             filters: unflattened[constraint.entity],
-          };
+          });
         }
-      });
+        return arr;
+      }, []);
+    });
 
     if (type === "create")
       createServiceAction(
         {
           ...unflattened,
-          type: unflattened["type"][0],
-          // serviceConstraints: constraints,
+          constraints: constraints,
         },
-        history
+        navigate
       );
     else
       updateServiceAction(
         {
           ...unflattened,
-          type: unflattened["type"][0],
+          type: unflattened["type"],
           serviceConstraints: constraints,
         },
-        history
+        navigate
       );
+  };
+
+  const publishService = (item) => {
+    let action = item.isPublished ? "Unpublish" : "Publish";
+    setDialogTitle(`${action} ${selected[0].translations[locale]["name"]}`);
+    let publishMessage = "";
+    if (item.isSystem) {
+      publishMessage = intl.formatMessage({ id: "service.unpublishable" });
+      setDialogProceedFunction(() => null);
+    } else {
+      setDialogProceedFunction(() => updateServiceAction);
+      setDialogProceedFunctionParams({
+        id: item.id,
+        isPublished: !item.isPublished,
+      });
+      publishMessage = "Unpublish"
+        ? intl.formatMessage({ id: "service.publish" })
+        : intl.formatMessage({ id: "service.unpublish" });
+      publishMessage += ` ${intl.formatMessage({
+        id: "general.confirm.proceed",
+      })}`;
+    }
+    setDialogContent(publishMessage);
+    toggleDialog();
   };
 
   const evaluateAdditionalActions = (item, idx) => {
     switch (idx) {
       case 0:
-        history.push(`details/${item.id}`);
+        navigate(`${item.id}`, {
+          state: {
+            title: item?.translations ? item?.translations[locale].name : "",
+          },
+        });
         break;
 
       default:
         break;
     }
   };
+
+  React.useEffect(() => {
+    onPanelDismiss();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
   return (
     <>
       <Table
@@ -302,20 +435,24 @@ const Services = ({
         items={services}
         cols={columns}
         isCompactMode={false}
-        locale={locale}
         itemInvoked={onItemInvoked}
         menuActions={menuActions}
         getRecords={getServicesAction}
         itemRemove={onItemRemove}
-        header={"Services"}
-        localeUpdate={setLocale}
+        locale={locale}
+        header={capitaliseSentense(
+          intl.formatMessage({ id: "service" }, { count: 2 })
+        )}
         evaluateAdditionalActions={evaluateAdditionalActions}
         additionalActions={[
           {
             key: "questions",
-            text: "Manage questions",
+            text: intl.formatMessage(
+              { id: "general.manage" },
+              { subject: "question" },
+              { count: 2 }
+            ),
             iconProps: { iconName: "QandA" },
-            iconOnly: true,
             buttonStyles: {
               root: { background: "transparent" },
             },
@@ -325,23 +462,28 @@ const Services = ({
       {panelHidden && (
         <PanelContainer
           header={dialogTitle}
-          panelWidth='546px'
-          panelType='custom'
+          panelWidth="546px"
+          panelType="custom"
           panelDismiss={onPanelDismiss}
           lightDismiss={false}
           content={dialogContent}
         />
       )}
-      <DialogBox
-        dialogHidden={dialogHidden}
-        showDialog={toggleDialog}
-        title={dialogTitle}
-        content={dialogContent}
-        cancel='Cancel'
-        confirm='Confirm'
-        proceedFunction={dialogProceedFunction}
-        params={dialogProceedFunctionParams}
-      />
+      {dialogHidden && (
+        <DialogBox
+          dialogHidden={dialogHidden}
+          showDialog={toggleDialog}
+          title={dialogTitle}
+          content={dialogContent}
+          cancel={intl.formatMessage({ id: "general.cancel" })}
+          confirm={{
+            content: intl.formatMessage({ id: "general.confirm" }),
+            disabled: dialogProceedFunction === null,
+          }}
+          proceedFunction={dialogProceedFunction}
+          params={dialogProceedFunctionParams}
+        />
+      )}
     </>
   );
 };
@@ -355,4 +497,6 @@ export default connect(mapStateToProps, {
   createServiceAction: createService,
   updateServiceAction: updateService,
   removeServiceAction: removeService,
+  resetServiceObjAction: resetServiceObj,
+  updateServiceObjAction: updateServiceObj,
 })(styled(Services, getStyles));

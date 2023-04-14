@@ -11,18 +11,25 @@ import {
   REMOVE_CONTENT,
   REMOVE_CONTENT_ERROR,
   REMOVE_CONTENT_SUCCESS,
+  UPDATE_CONTENT,
+  UPDATE_CONTENT_ERROR,
+  UPDATE_CONTENT_SUCCESS,
   UPDATE_CONTENT_ITEM,
+  RESET_CONTENT_ITEM,
   UPDATE_CONTENT_TEXT_ITEM_ERROR,
   UPDATE_CONTENT_TEXT_ITEM_SUCCESS,
   UPDATE_CONTENT_TEXT_ITEM,
   REMOVE_CONTENT_TEXT_ITEM,
   REMOVE_CONTENT_TEXT_ITEM_SUCCESS,
   REMOVE_CONTENT_TEXT_ITEM_ERROR,
+  CREATE_CONTENT_ITEM_SUCCESS,
+  CREATE_CONTENT_ITEM,
 } from "../actions";
 
 const initialState = {
   contents: [],
   content: {},
+  contentText: {},
   loading: true,
   data: {},
 };
@@ -62,7 +69,8 @@ const reducer = (state = initialState, action) => {
       return {
         ...state,
         content: action.payload.content,
-        history: action.payload.history,
+        contents: [action.payload.content, ...state.contents],
+        data: {},
         loading: false,
       };
     case GET_CONTENT:
@@ -99,7 +107,10 @@ const reducer = (state = initialState, action) => {
     case REMOVE_CONTENT_SUCCESS:
       return {
         ...state,
-        content: action.payload.content,
+        content: null,
+        contents: state.contents.filter(
+          (c) => c.id !== state.content.content.id
+        ),
         history: action.payload.history,
         loading: false,
       };
@@ -112,6 +123,11 @@ const reducer = (state = initialState, action) => {
         ...state,
         data: newVal,
         loading: false,
+      };
+    case RESET_CONTENT_ITEM:
+      return {
+        ...state,
+        data: {},
       };
     case UPDATE_CONTENT_TEXT_ITEM:
       return {
@@ -126,6 +142,36 @@ const reducer = (state = initialState, action) => {
         loading: false,
       };
     case UPDATE_CONTENT_TEXT_ITEM_SUCCESS:
+      let afterUpdate = state.contents.map((c) => {
+        if (state.content.content.content.includes(c.id)) {
+          let txt = {
+            ...c,
+            text: c.text.map((ci) =>
+              ci.id !== state.content.content.id ? ci : action.payload
+            ),
+          };
+          return txt;
+        } else return c;
+      });
+      return {
+        ...state,
+        content: action.payload.content,
+        contents: afterUpdate,
+        loading: false,
+      };
+    case UPDATE_CONTENT:
+      return {
+        ...state,
+        content: action.payload,
+        loading: true,
+      };
+    case UPDATE_CONTENT_ERROR:
+      return {
+        ...state,
+        error: action.payload,
+        loading: false,
+      };
+    case UPDATE_CONTENT_SUCCESS:
       return {
         ...state,
         content: action.payload.content,
@@ -144,9 +190,39 @@ const reducer = (state = initialState, action) => {
         loading: false,
       };
     case REMOVE_CONTENT_TEXT_ITEM_SUCCESS:
+      let afterRemove = state.contents.map((c) => {
+        if (c.id === state.content.group) {
+          let remainingtxt = {
+            ...c,
+            text: c.text.filter((ci) => ci.id !== state.content.id),
+          };
+          return remainingtxt;
+        } else return c;
+      });
       return {
         ...state,
         content: action.payload.content,
+        contents: afterRemove,
+        loading: false,
+      };
+    case CREATE_CONTENT_ITEM:
+      return {
+        ...state,
+        content: action.payload.content,
+        contentText: action.payload,
+        loading: true,
+      };
+    case CREATE_CONTENT_ITEM_SUCCESS:
+      let updatedci = state.contents.map((c) => {
+        if (state.contentText.content.content.includes(c.id)) {
+          return { ...c, text: [...c.text, action.payload] };
+        } else return c;
+      });
+      return {
+        ...state,
+        content: action.payload.content,
+        contents: updatedci,
+        contentText: {},
         loading: false,
       };
     default:

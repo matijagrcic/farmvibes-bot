@@ -7,6 +7,7 @@ import {
   GET_SERVICE,
   CREATE_SERVICE_SUCCESS,
   CREATE_QUESTION,
+  GET_QUESTIONS,
   REMOVE_QUESTION,
   UPDATE_QUESTION,
   REMOVE_QUESTION_VALIDATION,
@@ -14,7 +15,7 @@ import {
   CREATE_QUESTION_VALIDATION,
 } from "../actions";
 import { post, patch, remove, get } from "../../helpers/requests";
-import { setToStorage } from "helpers/utils";
+import { setToStorage, getFromStorage, encodeGroupURI } from "helpers/utils";
 
 import {
   getServicesSuccess,
@@ -35,30 +36,47 @@ import {
   updateQuestionSuccess,
   createQuestionValidationSuccess,
   createQuestionValidationError,
+  getQuestionsSuccess,
 } from "./actions";
 
 import { makeListRequest } from "helpers/utils";
 
 function* fetchServices({ payload }) {
   try {
+    let groups = encodeGroupURI("groups", [
+      "uxServiceRequest:read",
+      "translations",
+    ]);
     // eslint-disable-next-line no-useless-computed-key
     const result = yield call(makeListRequest, {
-      url: "services",
-      options: {
-        ...payload,
-        ...{ "groups[]": "translations" },
-      },
+      url: `services?${groups}`,
+      options: payload,
     });
     yield put(getServicesSuccess(result));
+  } catch (error) {
+    yield put(getServicesError(error));
+  }
+}
 
-    //We need to get service types
-    const serviceTypes = yield call(makeListRequest, {
-      url: "service_types",
-      options: {
-        "groups[]": "translations",
-      },
+function* fetchQuestions({ payload }) {
+  try {
+    let { service } = payload;
+    // eslint-disable-next-line no-useless-computed-key
+    const result = yield call(makeListRequest, {
+      url: `services/${service}/questions?groups[]=translations&groups[]=uxQuestionRequest:read&pagination=false`,
     });
-    setToStorage("serviceTypes", serviceTypes);
+    yield put(getQuestionsSuccess(result));
+
+    //We need to get question types
+    if (!getFromStorage("questionTypes")) {
+      const serviceTypes = yield call(makeListRequest, {
+        url: "question_types",
+        options: {
+          "groups[]": "translations",
+        },
+      });
+      setToStorage("questionTypes", serviceTypes);
+    }
   } catch (error) {
     yield put(getServicesError(error));
   }
@@ -66,11 +84,11 @@ function* fetchServices({ payload }) {
 
 function* createServiceItem({ payload }) {
   try {
-    const { service, history } = payload;
+    const { service, navigate } = payload;
     const result = yield call(async () => await post("services", service));
     if (result.hasOwnProperty("title") && result.title.contains("error"))
       yield put(createServiceError(result));
-    else yield put(createServiceSuccess(result, history));
+    else yield put(createServiceSuccess(result, navigate));
   } catch (error) {
     yield put(createServiceError(error));
   }
@@ -99,8 +117,8 @@ function* createQuestionValidation({ payload }) {
 }
 
 function* createdServiceSuccess({ payload }) {
-  const { service, history } = payload;
-  yield call(history.push, `details/${service.id}`);
+  const { service, navigate } = payload;
+  yield call(navigate, `${service.id}`, { state: { title: service.name } });
 }
 
 function* updateService({ payload }) {
@@ -121,7 +139,6 @@ function* updateService({ payload }) {
 function* removeService({ payload }) {
   try {
     const { service } = payload;
-    console.log(service);
     const result = yield call(
       async () =>
         await remove(`services/${service.id}`)
@@ -150,7 +167,7 @@ function* removeQuestionItem({ payload }) {
   try {
     const result = yield call(
       async () =>
-        await remove(`questions/${payload}`)
+        await remove(`services/${payload.serviceId}/question/${payload.id}`)
           .then((result) => result)
           .catch((error) => error)
     );
@@ -163,9 +180,18 @@ function* removeQuestionItem({ payload }) {
 function* updateQuestionItem({ payload }) {
   try {
     const { question } = payload;
+    //we need to remove all sub-resources since we won't be persisting them here
+    Object.keys(question).forEach((prop) => {
+      if (Array.isArray(question[prop] && prop !== "attributes")) {
+        delete question[prop];
+      }
+    });
     const result = yield call(
       async () =>
-        await patch(`questions/${question.id}`, question)
+        await patch(
+          `services/${question.serviceId}/question/${question.id}`,
+          question
+        )
           .then((result) => result)
           .catch((error) => error)
     );
@@ -267,6 +293,11 @@ export function* watchUpdateQuestionValidation() {
   yield takeEvery(UPDATE_QUESTION_VALIDATION, updateQuestionValidation);
 }
 
+export function* watchGetQuestion() {
+  // eslint-disable-next-line no-use-before-define
+  yield takeEvery(GET_QUESTIONS, fetchQuestions);
+}
+
 export default function* rootSaga() {
   yield all([fork(watchGetList)]);
   yield all([fork(watchGetService)]);
@@ -277,6 +308,7 @@ export default function* rootSaga() {
   yield all([fork(watchCreateQuestion)]);
   yield all([fork(watchRemoveQuestion)]);
   yield all([fork(watchUpdateQuestion)]);
+  yield all([fork(watchGetQuestion)]);
   yield all([fork(watchRemoveQuestionValidation)]);
   yield all([fork(watchUpdateQuestionValidation)]);
   yield all([fork(watchCreateQuestionValidation)]);
