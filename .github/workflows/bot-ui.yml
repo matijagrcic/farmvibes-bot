@@ -38,10 +38,10 @@ jobs:
         run: npm install --legacy-peer-deps
       - name: Linter
         run: npx eslint . --ext .js
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
       - name: Npm run build
         run: npm run build
         env:
          CI: ""
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
       
