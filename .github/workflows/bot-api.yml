@@ -1,0 +1,24 @@
+name: Bot API
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths-ignore: ["Farmvibes.Bot.UI/**","Farmvibes.Bot/**"]
+  pull_request:
+    paths-ignore: ["Farmvibes.Bot.UI/**","Farmvibes.Bot/**"]
+    
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./Farmvibes.Bot.API
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Validate composer file
+      run: |
+        composer validate --no-check-publish
+      

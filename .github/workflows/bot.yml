@@ -1,0 +1,39 @@
+name: Bot
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths-ignore:
+      [
+        "Farmvibes.Bot.API/**",
+        "Farmvibes.Bot.UI/**"
+      ]
+  pull_request:
+    paths-ignore:
+      [
+        "Farmvibes.Bot.API/**",
+        "Farmvibes.Bot.UI/**"
+      ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./Farmvibes.Bot
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 7.x
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --no-restore
+      - name: Test
+        run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage"
+      
