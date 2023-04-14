@@ -1,0 +1,36 @@
+<IfModule mod_rewrite.c>
+    # Turn mod_rewrite on
+    RewriteEngine On
+    RewriteBase /
+
+    # Rewrite static files that live in public/
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^(.*)\.(woff|ttf|svg|js|ico|gif|jpg|png|css|htc|xml|txt|pdf)$ /public/$1.$2 [L,NC]
+    RewriteCond %{HTTP:Authorization} ^(.*)
+    RewriteRule .* - [e=HTTP_AUTHORIZATION:%1]
+    
+    # Redirect all other URLs to public/index.php
+    RewriteRule ^((?!public/).*)$ public/index.php/$1 [L,QSA]
+</IfModule>
+
+
+<IfModule mod_deflate.c>
+
+SetOutputFilter DEFLATE
+SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png)$ no-gzip dont-vary
+BrowserMatch ^Mozilla/4 gzip-only-text/html
+BrowserMatch ^Mozilla/4\.0[678] no-gzip
+BrowserMatch \bMSIE !no-gzip !gzip-only-text/html
+Header append Vary User-Agent env=!dont-vary
+
+</IfModule>
+
+php_value upload_max_filesize 1000M
+php_value post_max_size 2000M
+php_value memory_limit 30000M
+php_value max_execution_time 180
+php_value max_input_time 180
+php_value display_errors On
+php_value upload_max_filesize 1000M
+php_value expose_php Off

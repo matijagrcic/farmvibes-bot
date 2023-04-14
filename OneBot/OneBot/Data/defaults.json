@@ -1,0 +1,78 @@
+{
+  "intro": {
+    "en": "$greeting #firstname#, welcome back. ",
+    "sw": "$greeting #firstname# na karibu tena. Leo ungependa nikusaidiaje? "
+  },
+  "intro_tail": {
+    "en": "Please choose from: ",
+    "sw": "Tafadhali chagua kati ya:  "
+  },
+  "intro_error": {
+    "en": "I'm sorry #firstname#, I can only help with  at the moment. Please choose one.",
+    "sw": "Samahani #firstname#, ninaweza kukusaidia na . Tafadhali chagua moja."
+  },
+  "reset_conversation": {
+    "en": "Previous conversation has been cleared, you can now start afresh.",
+    "sw": "Majadiliano ya awali umefutiliwa, sasa unaweza kwanza upya."
+  },
+  "index_outof_range": {
+    "en": "Sorry #firstname#, the option you selected does not exist. You can only choose  from these options: ",
+    "sw": "Samahani #firstname#, chaguo lako halikupatikana. Tafadhali chagua moja kati ya: "
+  },
+  "menu_options": {
+    "en": [ "Please choose your preferred option from these: ", "Select any of the options below that interests you:  ", "Which of these options interest you? " ],
+    "sw": [ "Tafadhali chagua kutoka kwa haya ", "Chagua iliyokuvutia kati ya haya ", "Ni chaguo gani kati ya haya inayokuvutia? " ]
+  },
+  "back_button": {
+    "en": "Go back",
+    "sw": "Rudi nyuma"
+  },
+  "final_menu_messages": {
+    "en": [ "Thank you #firstname#, you can continue with any of the options below." ],
+    "sw": [ "Asante #firstname#, unaweza endelea kutumia huduma hii kwa kuchagua kati ya haya." ]
+  },
+  "final_menu_options": {
+    "en": [ "Main menu" ],
+    "sw": [ "Menyu kuu" ]
+  },
+  "timeofday": {
+    "en": [ "morning", "afternoon", "evening" ],
+    "sw": [ "asubuhi", "mchana", "jioni" ]
+  },
+  "navigation": {
+    "menu": {
+      "en": [ "menu", "reset", "restart", "start over", "reboot", "begin" ],
+      "sw": [ "menyu", "anza", "anzisha", "upya", "tuanze", "menu" ]
+    },
+    "reset": {
+      "en": [ "reset", "clear" ],
+      "sw": [ "futa" ]
+    },
+    "stop": {
+      "en": [ "end", "stop", "do not continue", "don't continue", "terminate" ],
+      "sw": [ "maliza", "usiendelee", "katiza" ]
+    },
+    "back": {
+      "en": [ "go back", "back" ],
+      "sw": [ "rudi nyuma", "awali" ]
+    }
+  },
+  "greetings": {
+    "sw": [ "Jambo", "Hujambo", "Shikamoo" ],
+    "en": [ "Hi", "Hello", "Good $timeofday" ]
+  },
+  "unavailable_content": {
+    "en": "Unfortunately, the content you're trying to access is not available. Please check back later.",
+    "sw": "Kwa bahati mbaya, maudhui unayojaribu kufikia hayapatikani. Tafadhali angalia tena baadaye."
+  },
+  "error_message": {
+    "en": "Sorry, we are currently experiencing technical issues. Please check back later.",
+    "sw": "Samahani, kwa sasa tunakumbana na matatizo ya kiufundi. Tafadhali angalia tena baadaye."
+  },
+  "selectedoption_error": {
+    "en": "Sorry , the option you selected does not exist. You can only choose from these options:",
+    "sw": "Samahani , chaguo ulilochagua halipo. Unaweza tu kuchagua kutoka kwa chaguzi hizi:"
+
+
+  }
+}

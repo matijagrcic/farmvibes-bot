@@ -1,0 +1,37 @@
+api_platform:
+  title: "OneBot CMS API Documentation"
+  version: "0.0.1"
+  show_webby: false
+  mapping:
+    paths: ["%kernel.project_dir%/src/Entity"]
+  formats:
+    json:
+      mime_types: ["application/json"]
+    jsonld:
+      mime_types: ["application/ld+json"]
+  patch_formats:
+    json: ["application/json"]
+  eager_loading:
+    force_eager: true
+    max_joins: 50
+  enable_swagger_ui: true
+  swagger:
+    versions: [3]
+    api_keys:
+      apiKey:
+        name: Authorization
+        type: header
+  #https://api-platform.com/docs/core/performance/
+  http_cache:
+    invalidation:
+      enabled: true
+    public: true
+  defaults:
+    cache_headers:
+      max_age: 0
+      shared_max_age: 3600
+      vary: ["Content-Type", "Authorization", "Origin"]
+    iri_only: true
+  collection:
+    pagination:
+      enabled_parameter_name: pagination

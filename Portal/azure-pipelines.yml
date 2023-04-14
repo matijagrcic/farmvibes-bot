@@ -1,0 +1,100 @@
+# PHP as Linux Web App on Azure
+# Build, package and deploy your PHP project to Azure Linux Web App.
+# Add steps that run tests and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/php
+
+trigger:
+  - master
+  - staging
+
+variables:
+  # Azure Resource Manager connection created during pipeline creation
+  azureSubscription: "863ebf79-3d16-4941-a9c6-fe8f74edda6c"
+
+  # Web app name
+  webAppName: "onebotapi"
+
+  # Agent VM image name
+  vmImageName: "ubuntu-latest"
+
+  # Environment name
+  environmentName: "onebotapi"
+
+  # Root folder under which your composer.json file is available.
+  rootFolder: $(System.DefaultWorkingDirectory)
+
+stages:
+  - stage: Build
+    displayName: Build stage
+    variables:
+      phpVersion: "8.1"
+    jobs:
+      - job: BuildJob
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - script: |
+              sudo update-alternatives --set php /usr/bin/php$(phpVersion)
+              sudo update-alternatives --set phar /usr/bin/phar$(phpVersion)
+              sudo update-alternatives --set phpdbg /usr/bin/phpdbg$(phpVersion)
+              sudo update-alternatives --set php-cgi /usr/bin/php-cgi$(phpVersion)
+              sudo update-alternatives --set phar.phar /usr/bin/phar.phar$(phpVersion)
+              php -version
+            workingDirectory: $(rootFolder)
+            displayName: "Use PHP version $(phpVersion)"
+
+          - script: composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts
+            workingDirectory: $(rootFolder)
+            displayName: "Composer install"
+
+          - task: Bash@3
+            condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
+            inputs:
+              filePath: "crypto.sh"
+            env:
+              DATABASE_URL: $(DATABASE_URL)
+              PROD_ENCRYPTION_KEY: $(PROD_ENCRYPTION_KEY)
+              TRANSLATOR_LOCATION: $(TRANSLATOR_LOCATION)
+              BLOB_STORAGE_CONNECTION_STRING: $(BLOB_STORAGE_CONNECTION_STRING)
+              TRANSLATOR_TEXT_ENDPOINT: $(TRANSLATOR_TEXT_ENDPOINT)
+              CORS_ALLOW_ORIGIN: $(CORS_ALLOW_ORIGIN)
+              TRANSLATOR_TEXT_SUBSCRIPTION_KEY: $(TRANSLATOR_TEXT_SUBSCRIPTION_KEY)
+              TRANSLATOR_LANGUAGE_PATH: $(TRANSLATOR_LANGUAGE_PATH)
+              TRANSLATOR_TEXT_PATH: $(TRANSLATOR_TEXT_PATH)
+              MYSQL_CA_CERT: $(MYSQL_CA_CERT)
+              JWT_PASSPHRASE: $(JWT_PASSPHRASE)
+              JWT_PUBLIC_KEY: $(JWT_PUBLIC_KEY)
+              JWT_SECRET_KEY: $(JWT_SECRET_KEY)
+          - task: Bash@3
+            condition: eq(variables['Build.SourceBranch'], 'refs/heads/staging')
+            inputs:
+              filePath: "crypto.sh"
+            env:
+              DATABASE_URL: $(DATABASE_URL_ENV)
+              PROD_ENCRYPTION_KEY: $(PROD_ENCRYPTION_KEY)
+              TRANSLATOR_LOCATION: $(TRANSLATOR_LOCATION)
+              BLOB_STORAGE_CONNECTION_STRING: $(BLOB_STORAGE_CONNECTION_STRING)
+              TRANSLATOR_TEXT_ENDPOINT: $(TRANSLATOR_TEXT_ENDPOINT)
+              CORS_ALLOW_ORIGIN: $(CORS_ALLOW_ORIGIN)
+              TRANSLATOR_TEXT_SUBSCRIPTION_KEY: $(TRANSLATOR_TEXT_SUBSCRIPTION_KEY)
+              TRANSLATOR_LANGUAGE_PATH: $(TRANSLATOR_LANGUAGE_PATH)
+              TRANSLATOR_TEXT_PATH: $(TRANSLATOR_TEXT_PATH)
+              MYSQL_CA_CERT: $(MYSQL_CA_CERT)
+              JWT_PASSPHRASE: $(JWT_PASSPHRASE)
+              JWT_PUBLIC_KEY: $(JWT_PUBLIC_KEY)
+              JWT_SECRET_KEY: $(JWT_SECRET_KEY)
+
+          - task: ArchiveFiles@2
+            displayName: "Archive files"
+            inputs:
+              rootFolderOrFile: "$(rootFolder)"
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+              replaceExistingArchive: true
+
+          - publish: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+            displayName: "Upload package"
+            artifact: drop
+
+  

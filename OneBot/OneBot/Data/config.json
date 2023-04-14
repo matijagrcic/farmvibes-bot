@@ -1,0 +1,18 @@
+{
+  "version": {
+    "number": 1.49,
+    "changelog": {
+      "en": "Welcome back #firstname#. We have updated agricultural information on this service.",
+      "sw": "Karibu tena #firstname#. Tumeongeza na kusahihisha ujumbe zaidi katika huduma hii."
+    }
+  },
+  "logging": {
+    "conversations": true,
+    "interactions": true,
+    "interactionsinterval" :  30
+  },
+  "properties": {
+    "timezone": "E. Africa Standard Time",
+    "countrycode": "+254"
+  }
+}

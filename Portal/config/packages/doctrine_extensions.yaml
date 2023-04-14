@@ -1,0 +1,4 @@
+# services to handle doctrine extensions
+# import it in config/packages/doctrine_extensions.yaml
+services:
+    
