@@ -10,28 +10,27 @@ using Microsoft.Bot.Builder.Integration.AspNet.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using MySqlConnector;
-using OneBot.Database;
-using OneBot.Modules;
-using System.Data.Common;
-using Microsoft.EntityFrameworkCore;
-using System;
 using OneBot.Interfaces;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Bot.Connector.Authentication;
-using Microsoft.Bot.Connector;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Bot.Builder.BotFramework;
+using OneBot.Services;
+using Polly;
+using Polly.Extensions.Http;
+using System;
+using System.Net.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
 
 namespace OneBot
 {
     public class Startup
     {
-        public IConfiguration Configuration { get; }
+        private IConfiguration configuration { get; }
 
         public Startup(IConfiguration configuration)
         {
-            Configuration = configuration;
+            this.configuration = configuration;
         }
 
         // This method gets called by the runtime. Use this method to add services to the container.
@@ -45,7 +44,8 @@ namespace OneBot
                 options.Level = System.IO.Compression.CompressionLevel.Fastest;
             });
 
-            services.AddApplicationInsightsTelemetry(Configuration["InstrumentationKey"]);
+
+            services.AddApplicationInsightsTelemetry(configuration["InstrumentationKey"]);
             //create the sqlite db at startup
             services.AddTransient<IStartupTask, CreateDatabaseStartupTask>();
 
@@ -54,20 +54,33 @@ namespace OneBot
 
             IStorage dataStore = new MemoryStorage();
             var conversationState = new ConversationState(dataStore);
-            var userState = new UserState(dataStore);
+            var userState = new UserState(dataStore);            
 
             services.AddSingleton(conversationState);
             services.AddSingleton(userState);
+            services.AddSingleton<ConfigurationBotFrameworkAuthentication>();
 
-            //create cache db and table
-            services.AddDbContext<AppDbContext>(options => options.UseSqlite("Data Source=InMemory;Mode=Memory;Cache=Shared"));
-
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_3_0);
             services.AddSingleton<ICredentialProvider, ConfigurationCredentialProvider>();
             services.AddSingleton<IChannelProvider, ConfigurationChannelProvider>();
             services.AddSingleton<IBotFrameworkHttpAdapter, BotFrameworkHttpAdapter>();
+            services.AddSingleton<PortalService>();
+            services.AddSingleton<ContentService>();
+            services.AddSingleton<InteractionsService>();
+            services.AddSingleton<UserService>();
+            services.AddSingleton<PromptsHandlerService>();
+            services.AddTransient<PortalAuthenticationHandler>();
+            services.AddSingleton<ContentCache>();
+
+            services.AddHttpClient<PortalService>("portalClient", client =>
+            {
+                client.BaseAddress = new Uri(configuration["ContentAppUrl"]);
+            }).AddHttpMessageHandler<PortalAuthenticationHandler>()
+                .AddPolicyHandler(GetRetryPolicy())
+                .AddPolicyHandler(GetCircuitBreakerPolicy());
+            
             // Create the bot as a transient. In this case the ASP Controller is expecting an IBot.
             services.AddTransient<IBot, MainBot>();
+            
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -91,6 +104,31 @@ namespace OneBot
                 {
                     endpoints.MapControllers();
                 });
+        }
+        
+        /// <summary>
+        /// The circuit breaker policy is configured so it breaks or opens the circuit when there have been five consecutive faults when retrying the Http requests. 
+        /// When that happens, the circuit will break for 30 seconds: in that period, calls will be failed immediately by the circuit-breaker rather than actually be placed.
+        /// </summary>
+        /// <returns></returns>
+        private IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy()
+        {
+            return HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30));
+        }
+
+        /// <summary>
+        ///  In this case, the policy is configured to try six times with an exponential retry, starting at two seconds.
+        /// </summary>
+        /// <returns></returns>
+        private IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+        {
+            return HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.NotFound)
+                .WaitAndRetryAsync(6, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2,
+                    retryAttempt)));
         }
     }
 }

@@ -6,13 +6,10 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using OneBot.Modules;
-using OneBot.Utilities;
+using OneBot.Services;
 using System;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Timers;
 
 namespace OneBot
 {
@@ -21,15 +18,14 @@ namespace OneBot
 
         private System.Timers.Timer timer;
         private readonly ILogger<TimedHostedService> _logger;
-        private ContentFetch _contentFetch;
+        private readonly ContentService _contentService;
         private readonly IConfiguration _config;
-        private readonly IHttpClientFactory _httpClientFactory;
-
-        public TimedHostedService(IConfiguration config, IHttpClientFactory httpClientFactory, ILogger<TimedHostedService> logger = null)
+        
+        public TimedHostedService(IConfiguration config, ILogger<TimedHostedService> logger, ContentService contentService)
         {
             _config = config;
-            _httpClientFactory = httpClientFactory;
             _logger = logger;
+            _contentService = contentService;
         }
 
         /// <summary>
@@ -38,14 +34,11 @@ namespace OneBot
         /// </summary>
         public Task StartAsync(CancellationToken cancellationToken)              
         {
-            _contentFetch = new ContentFetch(_config, _httpClientFactory);
-            //populate table 
-
             timer = new System.Timers.Timer();
 
             timer.Interval = Convert.ToInt32(_config["TimerInterval"]);
             // Hook up the Elapsed event for the timer. 
-            timer.Elapsed += _contentFetch.OnTimedEvent;
+            timer.Elapsed += _contentService.OnTimedEvent;
 
             // Have the timer fire repeated events (true is the default)
             timer.AutoReset = true;

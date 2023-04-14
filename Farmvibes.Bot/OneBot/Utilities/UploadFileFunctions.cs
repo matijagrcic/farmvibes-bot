@@ -3,12 +3,9 @@
 
 using System;
 using System.IO;
-using Newtonsoft.Json.Linq;
 using OneBot.Modules;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Blob;
-using Newtonsoft.Json;
-using System.Configuration;
 using System.Threading.Tasks;
 using System.Threading;
 using Microsoft.Extensions.Configuration;
@@ -18,35 +15,18 @@ namespace OneBot.Utilities
     public class UploadFileFunctions
     {
         private readonly IConfiguration _config;
+        private readonly ErrorHandler _errorHandler;
 
-        public UploadFileFunctions(IConfiguration config)
+        public UploadFileFunctions(IConfiguration config, ErrorHandler errorHandler)
         {
             _config = config;
+            _errorHandler = errorHandler;
         }
-        public static string GetConversationFileName(string convoId)
-        {
-            var date = DateTime.Now.Date;
-            if (convoId.Contains("livechat"))
-            {
-                convoId = convoId.Replace("|", "");
-            }
-            var filePath = AppContext.BaseDirectory + $"/logs/conversations/{convoId} {date.Day}-{date.Month}-{date.Year}.json";
-            return filePath;
-        }
-        static void NewConversationLog(string filePath)
-        {
-            try
-            {
-                var file = new FileInfo(filePath);
-                file.Directory.Create();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message); throw;
-            }
-        }
-       
-        static FileStream WaitForFile(string fullPath, FileMode mode, FileAccess access, FileShare share)
+
+        //To-DO
+        //Log conversation data to blob/local storage
+
+        private FileStream WaitForFile(string fullPath, FileMode mode, FileAccess access, FileShare share)
         {
             for (var numTries = 0; numTries < 10; numTries++)
             {
@@ -76,7 +56,7 @@ namespace OneBot.Utilities
             {
                 try
                 {
-                    var storageAccount = CloudStorageAccount.Parse(ConfigurationManager.AppSettings["AzureWebJobsStorage"]);
+                    var storageAccount = CloudStorageAccount.Parse(_config["AzureWebJobsStorage"]);
                     var client = storageAccount.CreateCloudBlobClient();
                     var blobContainer = client.GetContainerReference(container);
                     blobContainer.CreateIfNotExistsAsync();
@@ -94,14 +74,10 @@ namespace OneBot.Utilities
                     Task.Delay(2000).Wait();
                     if (retries == 1)
                     {
-                        //Notfy ream that couldn't update file
-                        //var subject = "Caawiye Error Notification";
-                        var plainTextContent = $"Unable to upload {file} into {container} container on Azure Storage";
+                        //Notify team that couldn't update file
                         var htmlContent = $"<html><head></head><body><p>I am unable to upload <strong>{file}</strong> into <strong>{container}</strong> container on Azure Storage after 16 retries</p>";
                         htmlContent = htmlContent + $"<p>Stack trace: {ex.StackTrace}</p><p>Message: {ex.Message}</p><p>Inner exception: {ex.InnerException}</p></body></html>";
-                        var messaging = new Messaging(_config);
-                        messaging.SendTeamNotificationMessage(htmlContent);
-
+                        _errorHandler.SendTeamNotificationMessage(htmlContent);
                     }
                 }
             } while (retries-- > 0);

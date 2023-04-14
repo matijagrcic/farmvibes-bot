@@ -116,6 +116,7 @@ namespace OneBot.State
         {
             //We need to save certain keys e.g. hasbeenwelcomed
             var exclusionList = new List<string>() { "hasBeenWelcomed" };
+            language = null;
             RemoveAll(exclusionList);
         }
     }

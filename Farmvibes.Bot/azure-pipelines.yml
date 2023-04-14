@@ -1,0 +1,51 @@
+trigger:
+- main
+- staging
+
+pr:
+- main
+- staging
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  Codeql.Enabled: true
+
+steps:
+- task: CodeQL3000Init@0
+
+- task: UseDotNet@2
+  displayName: 'Use .NET sdk'
+  inputs:
+    packageType: sdk
+    version: 7.x
+
+- task: DotNetCoreCLI@2
+  displayName: 'Build project'
+  inputs:
+    arguments: '-c $(BuildConfiguration) --no-incremental'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Run tests'
+  inputs:
+    command: 'test'
+    arguments: '--configuration $(BuildConfiguration) --verbosity normal'
+
+- task: DotNetCoreCLI@2
+  displayName: Publish
+  inputs:
+    command: publish
+    publishWebProjects: true
+    arguments: '--configuration $(BuildConfiguration) --output $(build.artifactstagingdirectory)'
+    zipAfterPublish: true
+
+- task: CodeQL3000Finalize@0
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact'
+  inputs:
+    PathtoPublish: '$(build.artifactstagingdirectory)'
+  condition: succeededOrFailed()
+  

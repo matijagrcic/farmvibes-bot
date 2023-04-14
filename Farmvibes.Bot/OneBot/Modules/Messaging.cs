@@ -7,10 +7,7 @@ using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 using System.Net;
 using Microsoft.Extensions.Configuration;
-using MimeKit;
 using Attachment = Microsoft.Bot.Schema.Attachment;
-using MailKit.Security;
-using MailKit.Net.Smtp;
 using OneBot.State;
 using Microsoft.Bot.Builder;
 using OneBot.Models;
@@ -26,23 +23,19 @@ namespace OneBot.Modules
     /// </summary>
     public class Messaging
     {
-        private readonly IConfiguration _config;    
+        private readonly IConfiguration _config;
 
         /// <summary>
         /// Generates an image card with caption to the user.
         /// </summary>
-        /// <param name="item">Object with link, caption, thumbnail and title of card</param>
+        /// <param name="config"></param>
         /// <returns></returns>
-        /// 
-
-        //Get email settings and channel settings
-
         public Messaging(IConfiguration config)
         {
             _config = config;
         }
 
-        public static Attachment GetImageCard(JObject item)
+        private Attachment GetImageCard(JObject item)
         {
             var heroCard = new HeroCard
             {
@@ -62,7 +55,7 @@ namespace OneBot.Modules
         /// </summary>
         /// <param name="video">Object with link, caption, thumbnail and title of card</param>
         /// <returns></returns>
-        public static Attachment GetVideoCard(JObject video)
+        private Attachment GetVideoCard(JObject video)
         {
             var videoCard = new VideoCard
             {
@@ -90,7 +83,7 @@ namespace OneBot.Modules
         /// </summary>
         /// <param name="audio">Object with link, caption and title of card</param>
         /// <returns></returns>
-        public static Attachment GetAudioCard(JObject audio)
+        private Attachment GetAudioCard(JObject audio)
         {
             var audioCard = new AudioCard
             {
@@ -114,10 +107,10 @@ namespace OneBot.Modules
         /// Generates options for users to select alongside the messages sent to them.
         /// </summary>
         /// <param name="options">List of options to select from.</param>
-        /// <param name="backButtonText">If we have custom text for back button, we will use that otherwise we will use default button.</param>
+        /// <param name="userData"></param>
         /// <param name="numberOptions">Indicates whether we can prefix the options with their numeric position.</param>
         /// <returns></returns>
-        public static SuggestedActions MessageActions(dynamic options, UserData userData, bool numberOptions = false)
+        public SuggestedActions MessageActions(dynamic options, UserData userData, bool numberOptions = false)
         {
             try
             {
@@ -126,8 +119,7 @@ namespace OneBot.Modules
                 var cardButtons = new List<CardAction>();
                 foreach (var option in options)
                 {
-                    var cardButton = new CardAction();
-                    var optionText = string.Empty;
+                    string optionText;
 
                     if (option is string)
                     {
@@ -169,7 +161,7 @@ namespace OneBot.Modules
                         }
                     }
 
-                    cardButton = CreateCardButton(string.Concat(optionText.ToString()[0].ToString().ToUpperInvariant(), optionText.ToString().ToLowerInvariant().Substring(1)),
+                    CardAction cardButton = CreateCardButton(string.Concat(optionText[0].ToString().ToUpperInvariant(), optionText.ToLowerInvariant().Substring(1)),
                         numberOptions ? options.IndexOf(option) + 1 : default(int));
                     
                     cardButtons.Add(cardButton);
@@ -189,7 +181,7 @@ namespace OneBot.Modules
         /// <param name="content"></param>
         /// <param name="userProfile"></param>
         /// <returns>Text to be sent out</returns>
-        public static string SetText(Dictionary<string, dynamic> content, UserData userProfile)
+        public string SetText(Dictionary<string, dynamic> content, UserData userProfile)
         {
             string output;
             if (content["text"] is string)
@@ -216,7 +208,7 @@ namespace OneBot.Modules
         /// <param name="userProfile"></param>
         /// <param name="content"></param>
         /// <returns>Media output object</returns>
-        public static IMessageActivity SetMedia(UserData userProfile, Dictionary<string, dynamic> content)
+        public IMessageActivity SetMedia(UserData userProfile, Dictionary<string, dynamic> content)
         {
             var attachments = new List<Attachment>();
             var output = MessageFactory.Attachment(attachments);
@@ -226,7 +218,9 @@ namespace OneBot.Modules
             {
                 //Let us replace placeholders in the text
                 if (media.Value<string>("caption") != null)
+                {
                     media["text"] = TextFunctions.PrepareOutput(media.Value<string>("caption"), userProfile);
+                }
                 else
                 {
                     if (content["text"] is string)
@@ -242,26 +236,32 @@ namespace OneBot.Modules
                 switch (media.Value<string>("filetype"))
                 {
                     case "video":
-                        output.Attachments.Add(Messaging.GetVideoCard(media));
+                        output.Attachments.Add(GetVideoCard(media));
                         break;
 
                     case "audio":
-                        output.Attachments.Add(Messaging.GetAudioCard(media));
+                        output.Attachments.Add(GetAudioCard(media));
                         break;
 
                     default:
-                        output.Attachments.Add(Messaging.GetImageCard(media));
+                        output.Attachments.Add(GetImageCard(media));
                         break;
                 }
             }
 
             return output;
         }
-        public static dynamic SetOptions(Dictionary<string, dynamic> content, UserData userProfile, bool numberOptions = false)
+        /// <summary>
+        /// Set display options
+        /// </summary>
+        /// <param name="content"></param>
+        /// <param name="userProfile"></param>
+        /// <param name="numberOptions"></param>
+        /// <returns></returns>
+        public dynamic SetOptions(Dictionary<string, dynamic> content, UserData userProfile, bool numberOptions = false)
         {
             var options = content["options"];
-
-            var objFound = ((JObject)content["state"]).TryGetValue("state", out var res);
+            var objFound = content["state"].ContainsKey("state");
 
             //We don't need to set back button on the main menu
             if ((content.ContainsKey("state") && objFound && !((JObject)content["state"]).Value<string>("state").Equals("mainMenu")) && userProfile.Has("language"))
@@ -269,7 +269,10 @@ namespace OneBot.Modules
                 do
                 {
                     if (((JObject)content["state"]).Value<string>("state").Equals("service") && ((JObject)content["state"]).Value<bool>("finalMenu"))
+                    {
                         break;
+                    }
+
                     var backButtonText = DefaultsContainer.GetSingleObject().Value<JObject>("back_button").Value<string>(userProfile.Get<string>("language"));
 
                     var backButtonObj = new QuestionOption { value = backButtonText };
@@ -289,16 +292,16 @@ namespace OneBot.Modules
         /// <param name="text">Button text</param>
         /// <param name="numberOption">Number if the buttons need to be numbered</param>
         /// <returns></returns>
-        private static CardAction CreateCardButton(string text, int numberOption)
+        private CardAction CreateCardButton(string text, int numberOption)
         {
-            var CardButton = new CardAction()
+            var cardButton = new CardAction()
             {
                 Type = "imBack",
                 Title = numberOption != default ? $"{numberOption}. {text}" : text,
                 Value = text
             };
 
-            return CardButton;
+            return cardButton;
         }
 
         /// <summary>
@@ -309,29 +312,20 @@ namespace OneBot.Modules
         /// <param name="item">JObject item which contains content with specific interest of the 'info' key</param>
         /// <param name="card"></param>
         /// <returns></returns>
-        public static dynamic CreateCardButtons(JObject item, dynamic card)
+        private dynamic CreateCardButtons(JObject item, dynamic card)
         {
             if (!item.ContainsKey("info"))
+            {
                 return card;
+            }
+
             var cardActions = new List<CardAction>();
             foreach (JObject button in item.Value<JArray>("info"))
+            {
                 cardActions.Add(new CardAction(ActionTypes.OpenUrl, button.Value<string>("title"), value: button.Value<string>("source")));
-
+            }
             card.Buttons = cardActions;
             return card;
-        }
-
-        public string SendTeamNotificationMessage(string text)
-        {
-
-            var apilToken = _config.GetValue<string>("ApiToken"); 
-            var destID = _config.GetValue<string>("ChatID");
-            var urlString = String.Format(_config.GetValue<string>("Url"), apilToken, destID, text);
-
-            var webclient = new WebClient();
-
-            return webclient.DownloadString(urlString);           
-
         }
     }
 }

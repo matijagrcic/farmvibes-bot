@@ -1,78 +1,178 @@
 {
   "intro": {
-    "en": "$greeting #firstname#, welcome back. ",
-    "sw": "$greeting #firstname# na karibu tena. Leo ungependa nikusaidiaje? "
+    "en": "$greeting #firstname#, welcome back.",
+    "sw": "$greeting #firstname#, na karibu tena. Leo ungependa nikusaidiaje?",
+    "fr": "$greeting #firstname#, content de te revoir.",
+    "es": "$greeting #firstname#, que bueno verte de nuevo.",
+    "amh": "$greeting #firstname#, እንኳን ደህና መጣህ.",
+    "or": "$greeting #firstname#, baga nagaan dhufte."
   },
   "intro_tail": {
     "en": "Please choose from: ",
-    "sw": "Tafadhali chagua kati ya:  "
+    "sw": "Tafadhali chagua kati ya: ",
+    "fr": "Veuillez choisir parmi: ",
+    "es": "Por favor elija entre: ",
+    "amh": "እባክዎ ከ ይምረጡ: ",
+    "or": "Maaloo keessaa filadhu: "
   },
   "intro_error": {
     "en": "I'm sorry #firstname#, I can only help with  at the moment. Please choose one.",
-    "sw": "Samahani #firstname#, ninaweza kukusaidia na . Tafadhali chagua moja."
+    "sw": "Samahani #firstname#, ninaweza kukusaidia na . Tafadhali chagua moja.",
+    "fr": "Je suis désolé #firstname#, je ne peux que vous aider pour le moment. Veuillez en choisir un.",
+    "es": "Lo siento #firstname#, solo puedo ayudarte en este momento. Por favor elige uno.",
+    "amh": "ይቅርታ #firstname#፣ በዚህ ጊዜ ብቻ መርዳት እችላለሁ። እባክህ አንዱን ምረጥ።",
+    "or": "Dhiifama #maqaa jalqabaa#, yeroo ammaa kana qofa gargaaruu danda'a. Mee tokko filadhaa."
   },
   "reset_conversation": {
     "en": "Previous conversation has been cleared, you can now start afresh.",
-    "sw": "Majadiliano ya awali umefutiliwa, sasa unaweza kwanza upya."
+    "sw": "Majadiliano ya awali umefutiliwa, sasa unaweza kwanza upya.",
+    "fr": "La conversation précédente a été effacée, vous pouvez maintenant recommencer.",
+    "es": "La conversación anterior se ha borrado, ahora puede comenzar de nuevo.",
+    "amh": "ያለፈው ውይይት ጸድቷል፣ አሁን እንደገና መጀመር ይችላሉ።",
+    "or": "Haasaan kanaan duraa qulqullaa'eera, amma haaraa jalqabuu dandeessa."
   },
   "index_outof_range": {
     "en": "Sorry #firstname#, the option you selected does not exist. You can only choose  from these options: ",
-    "sw": "Samahani #firstname#, chaguo lako halikupatikana. Tafadhali chagua moja kati ya: "
+    "sw": "Samahani #firstname#, chaguo lako halikupatikana. Tafadhali chagua moja kati ya: ",
+    "fr": "Désolé #firstname#, l'option que vous avez sélectionnée n'existe pas. Vous ne pouvez choisir que parmi ces options: ",
+    "es": "Lo siento #firstname#, la opción que seleccionó no existe. Solo puede elegir entre estas opciones: ",
+    "amh": "ይቅርታ #firstname#፣ የመረጥከው አማራጭ የለም።ከነዚህ አማራጮች ውስጥ ብቻ መምረጥ ትችላለህ",
+    "or": "Dhiifama #firstname#, filannoo ati filatte hin jiru. Filannoowwan kana keessaa qofa filachuu dandeessa: "
+
   },
   "menu_options": {
     "en": [ "Please choose your preferred option from these: ", "Select any of the options below that interests you:  ", "Which of these options interest you? " ],
-    "sw": [ "Tafadhali chagua kutoka kwa haya ", "Chagua iliyokuvutia kati ya haya ", "Ni chaguo gani kati ya haya inayokuvutia? " ]
+    "amh": [ "እባክዎ ከእነዚህ ውስጥ የመረጡትን አማራጭ ይምረጡ፡- ", "ከታች ካሉት አማራጮች ውስጥ እርስዎን የሚስቡትን ይምረጡ፡- ", "ከእነዚህ አማራጮች ውስጥ የትኛውን ያስደስትዎታል?" ],
+    "sw": [ "Tafadhali chagua kutoka kwa haya ", "Chagua iliyokuvutia kati ya haya ", "Ni chaguo gani kati ya haya inayokuvutia? " ],
+    "fr": [ "Veuillez choisir votre option préférée parmi celles-ci: ", "Sélectionnez l'une des options ci-dessous qui vous intéresse: ", "Laquelle de ces options vous intéresse? " ],
+    "es": [ "Por favor, elija su opción preferida de estas: ", "Seleccione cualquiera de las siguientes opciones que le interese: ", "¿Cuál de estas opciones le interesa?" ],
+    "or": [ "Maaloo kanneen keessaa filannoo kee filadhu: ", "Filannoowwan armaan gadii keessaa kan si hawwatu filadhu: ", "Filannoowwan kana keessaa kamtu si hawwata? " ]
   },
   "back_button": {
     "en": "Go back",
-    "sw": "Rudi nyuma"
+    "sw": "Rudi nyuma",
+    "fr": "Retour",
+    "es": "Volver",
+    "amh": "ተመለስ",
+    "or": "Duuba deebi'i"
+
   },
   "final_menu_messages": {
     "en": [ "Thank you #firstname#, you can continue with any of the options below." ],
-    "sw": [ "Asante #firstname#, unaweza endelea kutumia huduma hii kwa kuchagua kati ya haya." ]
+    "sw": [ "Asante #firstname#, unaweza endelea kutumia huduma hii kwa kuchagua kati ya haya." ],
+    "fr": [ "Merci #firstname#, vous pouvez continuer avec l'une des options ci-dessous." ],
+    "es": [ "Gracias #firstname#, puedes continuar con cualquiera de las siguientes opciones." ],
+    "amh": [ "አመሰግናለው #firstname#፣ ከዚህ በታች ባሉት ማናቸውም አማራጮች መቀጠል ትችላለህ።" ],
+    "or": [ "Galatoomaa #firstname#, filannoowwan armaan gadii kamiyyuu itti fufuu dandeessa." ]
   },
   "final_menu_options": {
     "en": [ "Main menu" ],
-    "sw": [ "Menyu kuu" ]
+    "sw": [ "Menyu kuu" ],
+    "fr": [ "Menu principal" ],
+    "es": [ "Menú principal" ],
+    "amh": [ "ዋና ምናሌ" ],
+    "or": [ "Meenuu ijoo" ]
   },
   "timeofday": {
     "en": [ "morning", "afternoon", "evening" ],
-    "sw": [ "asubuhi", "mchana", "jioni" ]
+    "sw": [ "asubuhi", "mchana", "jioni" ],
+    "fr": [ "matin", "après-midi", "soir" ],
+    "es": [ "mañana", "tarde", "noche" ],
+    "amh": [ "ማለዳ", "ከሰአት በኋላ", "ምሽት" ],
+    "or": [ "ganama", "waaree booda", "galgala" ]
   },
   "navigation": {
     "menu": {
       "en": [ "menu", "reset", "restart", "start over", "reboot", "begin" ],
-      "sw": [ "menyu", "anza", "anzisha", "upya", "tuanze", "menu" ]
+      "sw": [ "menyu", "anza", "anzisha", "upya", "tuanze", "menu" ],
+      "fr": [ "menu", "reset", "restart", "recommencer", "reboot", "begin" ],
+      "es": [ "menu", "reset", "menú", "restablecer", "reiniciar", "empezar de nuevo", "reiniciar", "comenzar" ],
+      "amh": [ "menu", "reset", "ዳግም አስጀምር", "እንደገና ጀምር", "ዳግም አስነሳ", "ጀምር" ],
+      "or": [ "menu", "deebi'ii saagi", "deebi'ii jalqabi", "irra deebi'ii jalqabi", "deebi'ii jalqabi", "jalqabi", "menu", "reset" ]
     },
     "reset": {
       "en": [ "reset", "clear" ],
-      "sw": [ "futa" ]
+      "sw": [ "futa" ],
+      "fr": [ "réinitialiser", "effacer", "reset" ],
+      "es": [ "restablecer", "borrar", "reset", "clear" ],
+      "amh": [ "ዳግም ማስጀመር", "ግልጽ", "reset", "clear" ],
+      "or": [ "deebi'i saagi", "qulqulleessi", "reset", "clear" ]
     },
     "stop": {
       "en": [ "end", "stop", "do not continue", "don't continue", "terminate" ],
-      "sw": [ "maliza", "usiendelee", "katiza" ]
+      "sw": [ "maliza", "usiendelee", "katiza" ],
+      "fr": [ "end", "stop", "ne pas continuer", "ne pas continuer", "terminer" ],
+      "es": [ "finalizar", "detener", "no continuar", "no continuar", "terminar", "end", "stop" ],
+      "amh": [ "መጨረሻ፣", "አቁም፣", "አትቀጥል፣", "አትቀጥል፣", "ማቋረጥ", "end", "stop" ],
+      "or": [ "xumura", "dhaabbadhu", "hin itti fufin", "hin itti fufin", "xumuri", "end", "stop" ]
     },
     "back": {
       "en": [ "go back", "back" ],
-      "sw": [ "rudi nyuma", "awali" ]
+      "sw": [ "rudi nyuma", "awali" ],
+      "fr": [ "retour" ],
+      "es": [ "volver" ],
+      "amh": [ "ተመለስ", "ተመለስ" ],
+      "or": [ "duuba deebi'i", "deebi'i" ]
     }
   },
   "greetings": {
     "sw": [ "Jambo", "Hujambo", "Shikamoo" ],
-    "en": [ "Hi", "Hello", "Good $timeofday" ]
+    "en": [ "Hi", "Hello", "Good $timeofday" ],
+    "fr": [ "Salut", "Bonjour", "Bon $timeofday" ],
+    "amh": [ "ሠላም", "ሄሎ" ],
+    "or": [ "Hi", "Hello", "Gaarii $timeofday" ]
   },
   "unavailable_content": {
     "en": "Unfortunately, the content you're trying to access is not available. Please check back later.",
-    "sw": "Kwa bahati mbaya, maudhui unayojaribu kufikia hayapatikani. Tafadhali angalia tena baadaye."
+    "sw": "Kwa bahati mbaya, maudhui unayojaribu kufikia hayapatikani. Tafadhali angalia tena baadaye.",
+    "fr": "Malheureusement, le contenu auquel vous essayez d'accéder n'est pas disponible. Veuillez réessayer plus tard.",
+    "amh": "እንደ አለመታደል ሆኖ፣ ለማግኘት እየሞከሩት ያለው ይዘት አይገኝም። እባክዎ ቆይተው ያረጋግጡ።",
+    "or": "Wanti nama dhibu qabiyyeen ati argachuuf yaaltu hin jiru. Maaloo booda deebi'ii ilaali."
   },
   "error_message": {
     "en": "Sorry, we are currently experiencing technical issues. Please check back later.",
-    "sw": "Samahani, kwa sasa tunakumbana na matatizo ya kiufundi. Tafadhali angalia tena baadaye."
+    "sw": "Samahani, kwa sasa tunakumbana na matatizo ya kiufundi. Tafadhali angalia tena baadaye.",
+    "fr": "Désolé, nous rencontrons actuellement des problèmes techniques. Veuillez réessayer plus tard.",
+    "amh": "ይቅርታ፣ በአሁኑ ጊዜ ቴክኒካዊ ችግሮች እያጋጠሙን ነው። እባክዎ ቆይተው ያረጋግጡ።",
+    "or": "Dhiifama, yeroo ammaa rakkoon teeknikaa nu mudachaa jira. Mee booda deebi'aa."
   },
   "selectedoption_error": {
-    "en": "Sorry , the option you selected does not exist. You can only choose from these options:",
-    "sw": "Samahani , chaguo ulilochagua halipo. Unaweza tu kuchagua kutoka kwa chaguzi hizi:"
-
-
+    "en": "Sorry, the option you selected does not exist. You can only choose from these options:",
+    "sw": "Samahani , chaguo ulilochagua halipo. Unaweza tu kuchagua kutoka kwa chaguzi hizi:",
+    "fr": "Désolé, l'option que vous avez sélectionnée n'existe pas. Vous ne pouvez choisir que parmi ces options :",
+    "amh": "ይቅርታ የመረጥከው አማራጭ የለም:: ከእነዚህ አማራጮች ውስጥ ብቻ ነው መምረጥ የምትችለው::",
+    "or": "Dhiifama, filannoo ati filatte hin jiru. Filannoowwan kana keessaa qofa filachuu dandeessa:"
+  },
+  "authentication_details_socials": {
+    "en": "Welcome to our service, please provide your username to proceed.",
+    "amh": "እንኳን ወደ አገልግሎታችን በደህና መጡ፣ ለመቀጠል እባክዎ የተጠቃሚ ስምዎን ያቅርቡ።",
+    "or": "Baga gara tajaajila keenyaatti dhuftan, itti fufuuf maqaa fayyadamaa keessan nuuf kennaa.",
+    "sw": "Karibu kwenye huduma yetu, tafadhali toa jina lako la mtumiaji ili kuendelea.",
+    "es": "Bienvenido a nuestro servicio, proporcione su nombre de usuario para continuar.",
+    "fr": "Bienvenue sur notre service, veuillez fournir votre nom d'utilisateur pour continuer."
+  },
+  "authentication_details_sms": {
+    "en": "Welcome to our service, please provide the last four digits of your phone number to proceed.",
+    "am": "እንኳን ወደ አገልግሎታችን በደህና መጡ፣ እባክዎ ለመቀጠል የስልክ ቁጥርዎን የመጨረሻዎቹን አራት አሃዞች ያቅርቡ።",
+    "or": "Baga gara tajaajila keenyaatti dhuftan, itti fufuuf lakkoofsa bilbila keessanii dijiitota afran dhumaa nuuf kennaa.",
+    "sw": "Karibu kwenye huduma yetu, tafadhali toa tarakimu nne za mwisho za nambari yako ya simu ili kuendelea.",
+    "es": "Bienvenido a nuestro servicio, proporcione los últimos cuatro dígitos de su número de teléfono para continuar.",
+    "fr": "Bienvenue sur notre service, veuillez fournir les quatre derniers chiffres de votre numéro de téléphone pour continuer."
+  },
+  "unsuccessful_authentication_socials": {
+    "en": "Unfortunately that was incorrect, please provide your username to proceed. You can find this in the settings tab.",
+    "am": "እንደ አለመታደል ሆኖ ያ ትክክል አልነበረም፣ እባክዎ ለመቀጠል የተጠቃሚ ስምዎን ያቅርቡ። ይህንን በቅንብሮች ትር ውስጥ ማግኘት ይችላሉ።",
+    "or": "Kan nama dhibu sun sirrii hin turre, maaloo itti fufuuf maqaa fayyadamaa kee kenni. Kana caancala qindaa'inoota keessatti argachuu dandeessa.",
+    "es": "Desafortunadamente, eso fue incorrecto, proporcione su nombre de usuario para continuar. Puede encontrar esto en la pestaña de configuración.",
+    "fr": "Malheureusement, c'était incorrect, veuillez fournir votre nom d'utilisateur pour continuer. Vous pouvez le trouver dans l'onglet Paramètres.",
+    "sw": "Kwa bahati mbaya hiyo haikuwa sahihi, tafadhali toa jina lako la mtumiaji ili kuendelea. Unaweza kupata hii kwenye kichupo cha mipangilio."
+  },
+  "unsuccessful_authentication_sms": {
+    "en": "Unfortunately that was incorrect, please provide the last four digits of your phone number to proceed.",
+    "am": "እንደ አለመታደል ሆኖ ያ ትክክል አልነበረም፣ እባክዎ ለመቀጠል የስልክ ቁጥርዎን የመጨረሻዎቹን አራት አሃዞች ያቅርቡ።",
+    "or": "Kan nama dhibu sun sirrii hin turre, itti fufuuf lakkoofsa bilbila keessanii dijiitota afran dhumaa nuuf kennaa.",
+    "fr": "Malheureusement, c'était incorrect, veuillez fournir les quatre derniers chiffres de votre numéro de téléphone pour continuer.",
+    "sw": "Kwa bahati mbaya hiyo haikuwa sahihi, tafadhali toa tarakimu nne za mwisho za nambari yako ya simu ili kuendelea.",
+    "es": "Desafortunadamente, eso fue incorrecto, proporcione los últimos cuatro dígitos de su número de teléfono para continuar."
   }
 }

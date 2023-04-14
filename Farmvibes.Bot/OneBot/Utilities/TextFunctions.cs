@@ -13,13 +13,14 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OneBot.Singletons;
 using OneBot.State;
-using OneBot.Modules;
 using OneBot.Models;
+using OneBot.Services;
 
 namespace OneBot.Utilities
 {
     public static class TextFunctions
     {
+        
         /// <summary>
         /// Get user selected option from either presented options or internal options.
         /// Determines whether user input is a repetition of menu items or integer representing menu index of preffered choice
@@ -28,7 +29,7 @@ namespace OneBot.Utilities
         /// <param name="items"></param>
         /// <param name="presentedOptions"></param>
         /// <returns></returns>
-        public static string GetSelectedOption(JArray items, string input, UserData userData)
+        public static string GetSelectedOption(JArray items, string input, UserData userData, ContentService contentService)
         {
             try
             {
@@ -54,24 +55,24 @@ namespace OneBot.Utilities
                     {
                         return null;
                     }
-                        //To do: We may need to update tags in cases like search or diagnosis if user entered number.
+                    //To do: We may need to update tags in cases like search or diagnosis if user entered number.
                 }
                 else
                 {
                     var itemsScore = new Dictionary<string, int>();
                     string match = null;
 
-                    var language = userData.Has("language") ? userData.Get<string>("language") : "en";
+                    var language = userData.Has("language") ? userData.Get<string>("language") : contentService.GetAvailableLanguages().Where(x => x.Value<bool>("isDefault")).First().Value<string>("code");
 
                     foreach (var suggestion in items)
                     {
-                        var comparisonItem = string.Empty;
+                        string comparisonItem;
 
-                        if(suggestion.Value<string>("value") != null && suggestion.Value<JObject>("translations") == null)
+                        if (suggestion.Value<string>("value") != null && suggestion.Value<JObject>("translations") == null)
                         {
                             comparisonItem = suggestion.Value<string>("value");
                         }
-                        else if(suggestion.Value<JObject>("translations") == null && suggestion.Value<string>("id") == null)
+                        else if (suggestion.Value<JObject>("translations") == null && suggestion.Value<string>("id") == null)
                         {
                             comparisonItem = suggestion.Value<string>("value");
                         }
@@ -80,13 +81,13 @@ namespace OneBot.Utilities
                             comparisonItem = suggestion.Value<JObject>("translations").SelectToken(language).Value<string>("value");
                         }
 
-                        if (input.Equals(comparisonItem))
+                        if (input.ToLowerInvariant().Equals(comparisonItem.ToLowerInvariant()))
                         {
                             match = comparisonItem;
                             break;
                         }
                         else
-                            if (comparisonItem.Contains(input) || input.Contains(comparisonItem) || FuzzyMatchingStrings(comparisonItem, input))
+                            if (comparisonItem.ToLowerInvariant().Contains(input.ToLowerInvariant()) || input.ToLowerInvariant().Contains(comparisonItem.ToLowerInvariant()) || FuzzyMatchingStrings(comparisonItem.ToLowerInvariant(), input.ToLowerInvariant()))
                             itemsScore.Add(comparisonItem, GetDamerauLevenshteinDistance(input, comparisonItem));
                     }
 
@@ -128,9 +129,9 @@ namespace OneBot.Utilities
             }
         }
 
-        public static string GetCurrentOption(dynamic option, string field = null)
+        private static string GetCurrentOption(dynamic option, string field = null)
         {
-            var output = string.Empty;
+            string output;
 
             try
             {
@@ -237,8 +238,9 @@ namespace OneBot.Utilities
 
                 var matrix = new int[bounds.Height, bounds.Width];
 
-                for (var height = 0; height < bounds.Height; height++) { matrix[height, 0] = height; };
-                for (var width = 0; width < bounds.Width; width++) { matrix[0, width] = width; };
+                for (var height = 0; height < bounds.Height; height++) { matrix[height, 0] = height; }
+
+                for (var width = 0; width < bounds.Width; width++) { matrix[0, width] = width; }
 
                 for (var height = 1; height < bounds.Height; height++)
                 {
@@ -324,7 +326,7 @@ namespace OneBot.Utilities
 
             foreach (var validation in currentValidation)
             {
-                var isValid = true;
+                bool isValid;
                 var validationAttribute = validation.SelectToken("validationAttribute");
                 var validationType = validationAttribute.Value<string>("type");
                 var expression = validation.Value<string>("expression");
@@ -377,14 +379,14 @@ namespace OneBot.Utilities
         /// <param name="input">String to be sent out to user</param>
         /// <param name="language">language of conversion</param>
         /// <returns></returns>
-        public static string ReplaceTimeOfDay(string input, string language)
+        private static string ReplaceTimeOfDay(string input, string language)
         {
             try
             {
                 var str = new StringBuilder(input);
                 var eat = LocalDateTime(GetBotConfig("properties").Value<string>("timezone"));
                 var timeofday = GetTimeOfDay(eat.Hour, language);
-                str.Replace("$timeofday", timeofday.ToString());
+                str.Replace("$timeofday", timeofday);
                 return str.ToString();
             }
             catch (Exception ex)
@@ -400,7 +402,7 @@ namespace OneBot.Utilities
         /// </summary>
         /// <param name="timezone"></param>
         /// <returns></returns>
-        public static DateTime LocalDateTime(string timezone)
+        private static DateTime LocalDateTime(string timezone)
         {
             return TimeZoneInfo.ConvertTimeFromUtc(DateTime.Now.ToLocalTime().ToUniversalTime(), TimeZoneInfo.FindSystemTimeZoneById(timezone));
         }
@@ -412,7 +414,7 @@ namespace OneBot.Utilities
         /// <param name="hour"></param>
         /// <param name="language"></param>
         /// <returns></returns>
-        public static string GetTimeOfDay(int hour, string language)
+        private static string GetTimeOfDay(int hour, string language)
         {
             var timeofday = DefaultsContainer.GetSingleObject().Value<JObject>("timeofday").Value<JArray>(language);
             return hour > 16 ? timeofday[2].ToString() : hour > 11 ? timeofday[1].ToString() : timeofday[0].ToString();
@@ -478,7 +480,7 @@ namespace OneBot.Utilities
         /// <param name="output">Outgoing message</param>
         /// <param name="language">User's language</param>
         /// <returns>string with replaced message</returns>
-        public static string PrepareOutput(string output, string language)
+        private static string PrepareOutput(string output, string language)
         {
             //replace greeting
             if (output.Contains("$greeting"))
@@ -491,7 +493,7 @@ namespace OneBot.Utilities
             return output;
         }
 
-        public static string GetGreeting(string language)
+        private static string GetGreeting(string language)
         {
             var greetings = DefaultsContainer.GetSingleObject().Value<JObject>("greetings").Value<JArray>(language).ToObject<string[]>();
             var randomGreeting = greetings.OrderBy(x => Guid.NewGuid()).ToArray().First().ToLowerInvariant();
@@ -541,6 +543,110 @@ namespace OneBot.Utilities
                 throw exception;
             }
         }
+        /// <summary>
+        /// TO be Done - Match content with tags
+        /// </summary>
+        /// <param name="userInput"></param>
+        /// <param name="content"></param>
+        /// <param name="userProfile"></param>
+        /// <returns></returns>
+        public static dynamic MatchingContent(string userInput, List<JObject> content, UserData userProfile, ContentService contentService)
+        {
+            
+            try
+            {
+                //Add the title to the tags list to expand search
+                Dictionary<string, HashSet<string>> contentLabels = new Dictionary<string, HashSet<string>>();
+                
+
+                foreach (var item in content)
+                {
+                    foreach (var translation in item.Value<JObject>("translations"))
+                    {
+                        var labels = translation.Value.Value<string>("label").Trim().Split(' ').ToHashSet<string>();
+
+                        var id = item.Value<string>("id");
+
+                        if (!contentLabels.ContainsKey(id))
+                        {
+                            contentLabels.Add(id, new HashSet<string>(labels, StringComparer.OrdinalIgnoreCase));
+                        }
+                        else
+                            contentLabels[id].UnionWith(labels);
+                    }
+                }
+
+                string contentId = SearchedContentId(userInput, content, contentLabels);
+
+                if (contentId == null)
+                    return null;
+
+                var contentText = contentService.GetContent(contentId, userProfile.data.Value<string>("language"), 0);
+
+                return contentText;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message + " thrown at MatchingContent", ex);
+            }
+
+        }
+
+        /// <summary>
+        /// To be done - gets content id from tagged content
+        /// </summary>
+        /// <param name="userInput"></param>
+        /// <param name="content"></param>
+        /// <returns></returns>
+        private static string SearchedContentId(string input, List<JObject> contentList, Dictionary<string, HashSet<string>> contentLabels)
+        {
+            try
+            {
+                string contentId;
+                int maxScoreIndex = 0;
+
+                int length = contentList.Count;
+                int[] score = new int[length];
+                string[] words = input.TrimEnd('?').ToLower().Split(' ');
+
+                int maxScore = 0;
+                int i = 0;
+
+                foreach (var content in contentList)
+                {
+                    if (content.ContainsKey("tags"))
+                    {
+                        //Search through the tags list with the content labels included to expand search
+                        var tags = contentLabels[content.Value<string>("id")];
+                        var tagsList = content.Value<JArray>("tags");
+                        tags.UnionWith(tagsList.ToObject<List<string>>());
+
+                        foreach (string word in words)
+                        {
+                            if (tags.Contains(word))
+                            {
+                                score[i]++;
+                            }
+                            if (score[i] > maxScore)
+                            {
+                                maxScore = score[i];
+                                maxScoreIndex = i;
+                            }
+                        }
+                        i++;
+                    }
+                }
+
+                contentId = contentList[maxScoreIndex].Value<string>("id");
+
+                return contentId;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message + " thrown at SearchedContentId", ex);
+            }
+
+        }
 
         /// <summary>
         /// Add a conjunction between comma separated words in a string
@@ -548,7 +654,7 @@ namespace OneBot.Utilities
         /// <param name="word">comma separated string</param>
         /// <param name="delimiter">string to use as conjunction</param>
         /// <returns>string with last comma replaced by a conjunction e.g. "and", "or" or "au" </returns>
-        public static string Conjunction(string word, string delimiter)
+        private static string Conjunction(string word, string delimiter)
         {
             const string searchStr = ",";
             var lastIndex = word.LastIndexOf(',');
@@ -565,10 +671,10 @@ namespace OneBot.Utilities
         /// <param name="constraints"></param>
         /// <param name="result"></param>
         /// <returns></returns>
-        public static Dictionary<string, HashSet<string>> GetFilters(JArray constraints, Dictionary<string, HashSet<string>> result)
+        private static Dictionary<string, HashSet<string>> GetFilters(JArray constraints, Dictionary<string, HashSet<string>> result)
         {
 
-            foreach(var constraintItem in constraints)
+            foreach (var constraintItem in constraints)
             {
                 if (!result.ContainsKey(constraintItem.Value<JObject>("constraintItem").Value<string>("entity")))
                 {
@@ -581,21 +687,21 @@ namespace OneBot.Utilities
                     foreach (var filter in constraintItem.Value<JArray>("filters").ToObject<HashSet<string>>())
                         result[constraintItem.Value<JObject>("constraintItem").Value<string>("entity")].Add(filter);
                 }
-            }           
+            }
 
             return result;
         }
-        
+
         /// <summary>
         /// Gets the constraint items in a lookup dictionary that will be used to 
         /// get the filters in a particular content/service and checks whether the content should be displayed or not. 
         /// </summary>
         /// <param name="content"></param>
         /// <returns></returns>
-        public static Dictionary<string, HashSet<string>> GetConstraints(JObject menu, int stateContentId)
+        private static Dictionary<string, HashSet<string>> GetConstraints(JObject menu, int currentContentId)
         {
             Dictionary<string, HashSet<string>> constraintItems = new Dictionary<string, HashSet<string>>();
-            
+
             constraintItems = GetFilters(menu.Value<JArray>("constraints"), constraintItems);
 
             if (constraintItems.Count > 0)
@@ -610,12 +716,12 @@ namespace OneBot.Utilities
         /// <param name="content"></param>
         /// <param name="userdata"></param>
         /// <returns></returns>
-        public static bool ValidateAgaistConstraints(JObject menu, UserData userProfile, int stateContentId = 0)
+        public static bool ValidateAgaistConstraints(JObject menu, UserData userProfile, int currentContentId = 0)
         {
 
-             var constraintLooUp = GetConstraints(menu, stateContentId);
+            var constraintLooUp = GetConstraints(menu, currentContentId);
 
-            if(constraintLooUp.Count == 0)
+            if (constraintLooUp.Count == 0)
             {
                 return true;
             }
@@ -633,7 +739,7 @@ namespace OneBot.Utilities
             {
                 var filters = constraintLooUp[key];
 
-                if(key == "channel")
+                if (key == "channel")
                 {
                     if (filters.Contains(userProfile.data.Value<string>("channelPortalId")))
                         displayContent = true;

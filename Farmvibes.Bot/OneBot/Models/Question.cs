@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using OneBot.Models;
+
 namespace OneBot.Models
 {
     public class Question
@@ -21,13 +19,14 @@ namespace OneBot.Models
         public JObject translations { get; set; }
         public JArray attributes { get; set; }
         #nullable enable
-        public JArray? contentLookUp { get; set; }
+        public JObject? contentLookUp { get; set; }
+        #nullable enable
         public JObject questionTag { get; set; }
         public int position { get; set; }
         public bool isPublished { get; set; }
         public bool isSystem { get; set; }
         public bool isCompleted { get; set; }
-#nullable enable
+        #nullable enable
         public string? value { get; set; }
         public bool isEnabled { get; set; }
     }

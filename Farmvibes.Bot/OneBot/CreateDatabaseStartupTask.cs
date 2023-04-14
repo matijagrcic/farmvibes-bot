@@ -1,35 +1,23 @@
-﻿using Microsoft.Extensions.Configuration;
-using OneBot.Interfaces;
-using OneBot.Modules;
-using OneBot.Utilities;
-using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Linq;
-using System.Net.Http;
+﻿using OneBot.Interfaces;
+using OneBot.Services;
 using System.Threading.Tasks;
 
 namespace OneBot
 {
     public class CreateDatabaseStartupTask : IStartupTask
     {
-        private IConfiguration _config;
-        private IHttpClientFactory _httpClientFactory;
-        public CreateDatabaseStartupTask(IConfiguration config, IHttpClientFactory httpClientFactory)
+        private readonly ContentService _contentService;
+        
+        public CreateDatabaseStartupTask(ContentService contentService)
         {
-            _config = config;
-            _httpClientFactory = httpClientFactory;
+            _contentService = contentService;
         }
+        
         public async Task Execute()
         {
-            var _portalFunctions = new PortalFunctions(_config);
-
-            //Create local tables for data-handling
-            PortalFunctions.CreateLocalTables();
-
+            
             //Load content into table
-            var _contentFetch = new ContentFetch(_config, _httpClientFactory);
-            await _contentFetch.AddContentToDB();
+            await _contentService.AddContentToDB();
         }
     }
 }

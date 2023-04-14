@@ -111,7 +111,7 @@ public class ConversationData
     public void Clear()
     {
         //We need to save certain keys e.g. hasbeenwelcomed
-        var exclusionList = new List<string>() { "hasBeenWelcomed" };
+        var exclusionList = new List<string>() { "hasBeenWelcomed", "isAuthenticated", "lastAuthenticatedAt" };
         RemoveAll(exclusionList);
     }
 }
