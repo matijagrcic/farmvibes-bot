@@ -1,0 +1,28 @@
+version: 2
+updates:
+- package-ecosystem: nuget
+  directory: "/Farmvibes.Bot"
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 5
+  labels:
+    - dependencies
+- package-ecosystem: github-actions
+  directory: "/"
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 5
+- package-ecosystem: npm
+  directory: "/Farmvibes.Bot.UI"
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 5
+  labels:
+    - dependencies
+- package-ecosystem: composer
+  directory: "/Farmvibes.Bot.API"
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 5
+  labels:
+    - dependencies
