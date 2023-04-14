@@ -3,7 +3,7 @@ name: Bot API
 on:
   workflow_dispatch:
   push:
-    branches: [master]
+    branches: [main]
     paths-ignore: ["Farmvibes.Bot.UI/**","Farmvibes.Bot/**"]
   pull_request:
     paths-ignore: ["Farmvibes.Bot.UI/**","Farmvibes.Bot/**"]

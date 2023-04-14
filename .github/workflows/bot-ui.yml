@@ -3,7 +3,7 @@ name: Bot UI
 on:
   workflow_dispatch:
   push:
-    branches: [master]
+    branches: [main]
     paths-ignore:
       [
         "Farmvibes.Bot.API/**",
@@ -30,6 +30,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 16.x
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: javascript
       - name: Npm install
         run: npm install --legacy-peer-deps
       - name: Linter
@@ -38,4 +42,6 @@ jobs:
         run: npm run build
         env:
          CI: ""
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
       

@@ -3,7 +3,7 @@ name: Bot
 on:
   workflow_dispatch:
   push:
-    branches: [master]
+    branches: [main]
     paths-ignore:
       [
         "Farmvibes.Bot.API/**",
@@ -30,10 +30,16 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: 7.x
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: csharp
       - name: Restore dependencies
         run: dotnet restore
       - name: Build
         run: dotnet build --no-restore
       - name: Test
         run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage"
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
       
