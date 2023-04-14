@@ -19,17 +19,20 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslatable;
 use Locastic\ApiPlatformTranslationBundle\Model\TranslationInterface;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
-#[ApiResource(normalizationContext: ['groups' => ['channel:read']], denormalizationContext: ['groups' => ['channel:write']], filters: ['translation.groups'])]
+#[ApiResource(normalizationContext: ['groups' => ['channel:read']], denormalizationContext: ['groups' => ['channel:write']], filters: ['translation.groups'], order: ['name' => 'ASC'])]
 #[ORM\Entity]
 #[ORM\HasLifecycleCallbacks]
 class Channel extends AbstractTranslatable
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
     #[Groups(['channel:read', 'botUser:read'])]
-    private ?int $id = null;
+    private $id;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 30)]
     #[Groups(['channel:read', 'channel:write', 'content:read', 'botUser:read'])]
@@ -75,7 +78,7 @@ class Channel extends AbstractTranslatable
     private ?string $url = null;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER, nullable: true)]
-    #[Groups(['channel:read', 'channel:write'])]
+    #[Groups(['channel:write'])]
     private ?int $characterLength = null;
     /**
      * @var \Doctrine\Common\Collections\Collection<\App\Entity\ContentTextVariant>
@@ -94,7 +97,7 @@ class Channel extends AbstractTranslatable
         parent::__construct();
         $this->botUserContacts = new ArrayCollection();
     }
-    public function getId() : ?int
+    public function getId() : ?string
     {
         return $this->id;
     }

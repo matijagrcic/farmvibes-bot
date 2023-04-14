@@ -16,35 +16,88 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
-use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslatable;
 use Locastic\ApiPlatformTranslationBundle\Model\TranslationInterface;
+use Doctrine\DBAL\Types\Types;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
+use ApiPlatform\Metadata\Link;
 
-#[ApiResource(normalizationContext: ['groups' => ['questionConstraint:read']], denormalizationContext: ['groups' => ['questionConstraint:write']])]
+#[ApiResource(operations:[new GetCollection(
+    uriTemplate: '/questions/{questionId}/constraints', 
+    uriVariables: [
+        'questionId' => new Link(
+            fromClass: Question::class,
+            fromProperty: 'constraints'
+        ),
+    ]
+    ), new Post()])]
+#[ApiResource(operations:[new Get(
+    uriTemplate: '/questions/{questionId}/constraints/{id}', 
+    uriVariables: [
+        'questionId' => new Link(
+            fromClass: Question::class,
+            fromProperty: 'constraints'
+        ),
+        'id' => new Link(
+            fromClass: QuestionConstraint::class
+        )
+    ],
+    )])]
+#[ApiResource(operations:[new Delete(
+    uriTemplate: '/questions/{questionId}/constraints/{id}', 
+    uriVariables: [
+        'questionId' => new Link(
+            fromClass: Question::class,
+            fromProperty: 'constraints'
+        ),
+        'id' => new Link(
+            fromClass: QuestionConstraint::class
+        )
+    ],
+    )])]
+#[ApiResource(operations:[new Patch(
+    uriTemplate: '/questions/{questionId}/constraints/{id}', 
+    uriVariables: [
+        'questionId' => new Link(
+            fromClass: Question::class,
+            fromProperty: 'constraints'
+        ),
+        'id' => new Link(
+            fromClass: QuestionConstraint::class
+        )
+    ],
+    )])]
 #[ORM\Entity]
 #[ORM\HasLifecycleCallbacks]
 class QuestionConstraint
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
     #[Groups(['questionConstraint:read', 'question:read'])]
-    private ?int $id = null;
+    private $id;
 
     #[ORM\ManyToOne(targetEntity: Question::class, inversedBy: 'constraints')]
-    #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['questionConstraint:write'])]
+    #[ORM\JoinColumn(nullable: true)]
+    #[Groups(['question:write'])]
     private ?\App\Entity\Question $question = null;
 
-    #[ORM\ManyToOne(targetEntity: Constraint::class, inversedBy: 'question')]
+    #[ORM\ManyToOne(targetEntity: Constraint::class)]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['questionConstraint:read', 'question:read', 'questionConstraint:write', 'question:write'])]
-    private ?\App\Entity\Constraint $constaintItem = null;
+    #[Groups(['questionConstraint:read', 'question:read', 'question:write'])]
+    #[ApiProperty(readableLink: true)]
+    private ?\App\Entity\Constraint $constraintItem = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::JSON)]
+    #[ORM\Column(type: Types::JSON)]
     #[Groups(['questionConstraint:read', 'question:read', 'questionConstraint:write', 'question:write'])]
-    private $filters = [];
+    private array $raw = [];
+
+    #[ORM\Column(type: Types::SIMPLE_ARRAY)]
+    #[Groups(['questionConstraint:read', 'question:read', 'questionConstraint:write', 'question:write'])]
+    private array $filters = [];
     
-    public function getId() : ?int
+    public function getId() : ?string
     {
         return $this->id;
     }
@@ -57,26 +110,45 @@ class QuestionConstraint
         $this->question = $question;
         return $this;
     }
-    public function getConstaintItem() : ?Constraint
+
+    public function getConstraintItem(): ?Constraint
     {
-        return $this->constaintItem;
+        return $this->constraintItem;
     }
-    public function setConstaintItem(?Constraint $constaintItem) : self
+
+    public function setConstraintItem(?Constraint $constraintItem): self
     {
-        $this->constaintItem = $constaintItem;
+        $this->constraintItem = $constraintItem;
+
         return $this;
     }
-    public function getFilters() : ?array
-    {
-        return $this->filters;
-    }
-    public function setFilters(array $filters) : self
-    {
-        $this->filters = $filters;
-        return $this;
-    }
+    
     public function __toString()
     {
         return $this->getFilters() === null ? "New" : $this->getFilters();
+    }
+
+    public function getRaw(): array
+    {
+        return $this->raw;
+    }
+
+    public function setRaw(?array $raw): self
+    {
+        $this->raw = $raw;
+
+        return $this;
+    }
+
+    public function getFilters(): array
+    {
+        return $this->filters;
+    }
+
+    public function setFilters(array $filters): self
+    {
+        $this->filters = $filters;
+
+        return $this;
     }
 }

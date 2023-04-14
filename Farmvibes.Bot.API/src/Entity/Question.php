@@ -10,7 +10,7 @@ use ApiPlatform\Metadata\Put;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\ApiProperty;
-use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Doctrine\Orm\Filter\ExistsFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use App\Repository\QuestionRepository;
 use Doctrine\Common\Collections\Collection;
@@ -22,106 +22,176 @@ use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslatable;
 use Locastic\ApiPlatformTranslationBundle\Model\TranslationInterface;
 use Symfony\Component\Serializer\Annotation\MaxDepth;
 use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
+use ApiPlatform\Metadata\Link;
+use Doctrine\DBAL\Types\Types;
 
-#[ApiResource(order: ['position' => 'ASC'], normalizationContext: ['groups' => ['question:read'], 'enable_max_depth' => true], denormalizationContext: ['groups' => ['question:write'], 'enable_max_depth' => true], filters: ['translation.groups'])]
-#[ApiFilter(filterClass: SearchFilter::class, properties: ['service' => 'exact'])]
+#[ApiResource(operations: [new Post(denormalizationContext: ['groups' => ['question:write']],
+normalizationContext: ['groups' => ['uxQuestionRequest:read','translations','uxPersonalisation:read']])])]
+#[ApiResource(uriTemplate: '/services/{serviceId}/questions', 
+    uriVariables: [
+        'serviceId' => new Link(
+            fromClass: Service::class,
+            fromProperty: 'questions'
+        )
+    ],
+    order: ['position' => 'ASC'],
+    operations: [new GetCollection()],
+    filters: ['translation.groups'])
+]
+#[ApiResource(uriTemplate: '/services/{serviceId}/questions/{id}', 
+    uriVariables: [
+        'serviceId' => new Link(
+            fromClass: Service::class,
+            fromProperty: 'questions'
+        ),
+        'id' => new Link(
+            fromClass: Question::class
+        )
+    ],
+    operations: [new Get()])
+]
+#[ApiResource(uriTemplate: '/services/{serviceId}/question', 
+    uriVariables: [
+        'serviceId' => new Link(
+            fromClass: Service::class,
+            fromProperty: 'questions'
+        )
+    ],
+    operations: [new Post()],
+    denormalizationContext: ['groups' => ['question:write']])
+]
+#[ApiResource(uriTemplate: '/services/{serviceId}/question/{id}', 
+    uriVariables: [
+        'serviceId' => new Link(
+            fromClass: Service::class,
+            fromProperty: 'questions'
+        ),
+        'id' => new Link(
+            fromClass: Question::class
+        )
+    ],
+    operations: [new Patch()],
+    normalizationContext: ['groups' => ['uxQuestionRequest:read','translations']],
+    denormalizationContext: ['groups' => ['question:write']])
+    
+]
+#[ApiResource(uriTemplate: '/services/{serviceId}/question/{id}', 
+    uriVariables: [
+        'serviceId' => new Link(
+            fromClass: Service::class,
+            fromProperty: 'questions'
+        ),
+        'id' => new Link(
+            fromClass: Question::class
+        )
+    ],
+    operations: [new Delete()])
+]
+#[ApiFilter(ExistsFilter::class, properties: ['questionOptions'])]
 #[ORM\Entity(repositoryClass: QuestionRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 class Question extends AbstractTranslatable
 {
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
+    #[ORM\Column(type: Types::GUID)]
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
     #[Assert\Uuid]
-    #[Groups(['question:read', 'service:read'])]
-    private $id;
+    #[Groups(['question:read','uxQuestionRequest:read', 'service:read','uxPersonalisation:read', 'onebot:read', 'uxConstraints:read'])]
+    private $id = null;
 
-    #[Groups(['question:read', 'service:read'])]
-    protected $question;
-
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
-    #[Groups(['question:read', 'question:write', 'service:write', 'service:read'])]
+    #[ORM\Column(type: Types::STRING, length: 255, nullable: true)]
+    #[Groups(['question:read','uxQuestionRequest:read', 'question:write', 'service:write', 'service:read','uxPersonalisation:read', 'onebot:read', 'uxConstraints:read'])]
     private ?string $description = null;
 
     #[Groups(['question:read', 'service:read'])]
     private $hint;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE)]
-    #[Groups(['question:read'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
+    #[Groups(['question:read','uxQuestionRequest:read'])]
     private $createdAt;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE, nullable: true)]
-    #[Groups(['question:read'])]
+    #[Groups(['translations'])]
+    protected $question;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups(['question:read','uxQuestionRequest:read'])]
     private $updatedAt;
 
     #[ORM\ManyToOne(targetEntity: QuestionType::class, inversedBy: 'questions')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['question:read', 'question:write', 'service:read', 'service:write'])]
+    #[Groups(['question:read', 'question:write', 'service:read', 'service:write','uxQuestionRequest:read', 'onebot:read'])]
     private ?\App\Entity\QuestionType $questionType = null;
 
     /**
      * @var \Doctrine\Common\Collections\Collection<\App\Entity\Media>
      */
     #[ORM\ManyToMany(targetEntity: Media::class, inversedBy: 'questions', cascade: ['PERSIST','REMOVE'])]
-    #[Groups(['question:read', 'question:write', 'service:read', 'service:write'])]
-    private \Doctrine\Common\Collections\Collection $media;
+    #[Groups(['question:read', 'question:write', 'service:read', 'service:write', 'onebot:read'])]
+    private Collection $media;
 
     /**
      * @var \Doctrine\Common\Collections\Collection<\App\Entity\QuestionOption>
      */
     #[ORM\OneToMany(targetEntity: QuestionOption::class, mappedBy: 'question', cascade: ['PERSIST','REMOVE'], orphanRemoval: true)]
-    #[Groups(['question:read', 'question:write', 'service:read', 'service:write'])]
-    private \Doctrine\Common\Collections\Collection $questionOptions;
-
-    /**
-     * @var \Doctrine\Common\Collections\Collection<\App\Entity\QuestionConstraint>
-     */
-    #[ORM\OneToMany(targetEntity: QuestionConstraint::class, mappedBy: 'question', orphanRemoval: true, cascade: ['PERSIST','REMOVE'])]
-    #[Groups(['question:read', 'question:write', 'service:write'])]
-    private \Doctrine\Common\Collections\Collection $questionConstraints;
+    #[Groups(['question:read','uxQuestionRequest:read', 'question:write', 'service:read', 'service:write', 'onebot:read'])]
+    #[ApiProperty(writableLink: true)]
+    #[Link(toProperty: 'questionOptions')]
+    private Collection $questionOptions;
 
     /**
      * @var \Doctrine\Common\Collections\Collection<int, \App\Entity\QuestionTranslation>|\App\Entity\QuestionTranslation[]
      */
     #[ORM\OneToMany(targetEntity: QuestionTranslation::class, mappedBy: 'translatable', indexBy: 'locale', cascade: ['PERSIST','REMOVE'], orphanRemoval: true)]
-    #[Groups(['question:read', 'question:write', 'translations', 'service:write', 'service:read'])]
+    #[Groups(['question:write', 'translations', 'service:write'])]
     protected Collection $translations;
 
     /**
      * @var \Doctrine\Common\Collections\Collection<\App\Entity\QuestionValidation>
      */
     #[ORM\OneToMany(targetEntity: QuestionValidation::class, mappedBy: 'question', cascade: ['PERSIST','REMOVE'])]
-    #[Groups(['question:read', 'question:write', 'service:write', 'service:read'])]
-    private \Doctrine\Common\Collections\Collection $questionValidations;
+    #[Groups(['question:read', 'question:write', 'service:write', 'service:read', 'onebot:read'])]
+    private Collection $questionValidations;
 
     #[ORM\ManyToOne(targetEntity: Service::class, inversedBy: 'questions')]
     #[ORM\JoinColumn(nullable: false)]
     #[Groups(['question:write'])]
     private ?\App\Entity\Service $service = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::ARRAY, nullable: true)]
-    #[Groups(['question:read', 'question:write', 'service:read', 'service:write'])]
+    #[ORM\Column(type: Types::ARRAY, nullable: true)]
+    #[Groups(['question:read','uxQuestionRequest:read', 'question:write', 'service:read', 'service:write', 'onebot:read'])]
+
     private $attributes = [];
 
     private $timezone = 'Africa/Nairobi';
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER, nullable: true)]
-    #[Groups(['question:read', 'question:write', 'service:read', 'service:write'])]
+    #[ORM\Column(type: Types::INTEGER, nullable: true)]
+    #[Groups(['question:read','uxQuestionRequest:read', 'question:write', 'service:read', 'service:write', 'onebot:read'])]
     private ?int $position = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::BOOLEAN)]
-    #[Groups(['question:read', 'question:write', 'service:read', 'service:write'])]
+    #[ORM\Column(type: Types::BOOLEAN)]
+    #[Groups(['question:read','uxQuestionRequest:read', 'question:write', 'service:read', 'service:write', 'onebot:read'])]
+
     private ?bool $isPublished = false;
 
-    #[ApiProperty(security: 'is_granted(\'ROLE_ADMIN\')')]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::BOOLEAN)]
-    #[Groups(['question:read', 'question:write', 'service:read', 'service:write'])]
+    #[ORM\Column(type: Types::BOOLEAN)]
+    #[Groups(['question:read','uxQuestionRequest:read', 'question:write', 'service:read', 'service:write', 'onebot:read'])]
+
     private ?bool $isSystem = false;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::JSON, nullable: true)]
-    #[Groups(['question:read', 'question:write', 'service:read', 'service:write'])]
-    private $contentLookUp = [];
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    #[Groups(['question:read','uxQuestionRequest:read', 'question:write', 'service:read', 'service:write', 'onebot:read'])]
+    private $contentLookUp = null;
+
+    #[ORM\ManyToOne(targetEntity: QuestionTag::class, inversedBy: 'questions')]
+    #[ORM\JoinColumn(nullable: true)]
+    #[Groups(['question:read', 'question:write', 'service:read', 'service:write', 'onebot:read'])]
+    private $questionTag;
+
+    #[ORM\OneToMany(mappedBy: 'question', targetEntity: QuestionConstraint::class, cascade: ['PERSIST','REMOVE'], orphanRemoval: true)]
+    #[Groups(['question:read', 'question:write', 'service:write', 'service:read', 'onebot:read'])]
+    #[Link(toProperty: 'constraints')]
+    private Collection $constraints;
 
     public function __construct()
     {
@@ -130,7 +200,7 @@ class Question extends AbstractTranslatable
         $this->media = new ArrayCollection();
         $this->questionOptions = new ArrayCollection();
         $this->questionValidations = new ArrayCollection();
-        $this->questionConstraints = new ArrayCollection();
+        $this->constraints = new ArrayCollection();
     }
     public function getId() : ?string
     {
@@ -270,6 +340,19 @@ class Question extends AbstractTranslatable
         $this->service = $service;
         return $this;
     }
+
+    public function getQuestionTag(): ?QuestionTag
+    {
+        return $this->questionTag;
+    }
+
+    public function setQuestionTag(?QuestionTag $questionTag): self
+    {
+        $this->questionTag = $questionTag;
+
+        return $this;
+    }
+
     /**
      * @throws \Exception
      */
@@ -333,6 +416,36 @@ class Question extends AbstractTranslatable
     public function setContentLookUp(?array $contentLookUp) : self
     {
         $this->contentLookUp = $contentLookUp;
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, QuestionConstraint>
+     */
+    public function getConstraints(): Collection
+    {
+        return $this->constraints;
+    }
+
+    public function addConstraint(QuestionConstraint $constraint): self
+    {
+        if (!$this->constraints->contains($constraint)) {
+            $this->constraints->add($constraint);
+            $constraint->setQuestion($this);
+        }
+
+        return $this;
+    }
+
+    public function removeConstraint(QuestionConstraint $constraint): self
+    {
+        if ($this->constraints->removeElement($constraint)) {
+            // set the owning side to null (unless already changed)
+            if ($constraint->getQuestion() === $this) {
+                $constraint->setQuestion(null);
+            }
+        }
+
         return $this;
     }
 }

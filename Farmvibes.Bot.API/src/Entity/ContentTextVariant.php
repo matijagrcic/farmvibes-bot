@@ -2,35 +2,43 @@
 
 namespace App\Entity;
 
-use App\Repository\ContentTextVariantRepository;
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\ApiProperty;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslatable;
 use Locastic\ApiPlatformTranslationBundle\Model\TranslationInterface;
-use ApiPlatform\Core\Annotation\ApiResource;
 use Symfony\Component\Serializer\Annotation\Groups;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Serializer\Filter\GroupFilter;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ORM\Entity]
 #[ORM\HasLifecycleCallbacks]
+#[ApiResource(order: ['createdAt' => 'DESC'],filters: ['translation.groups'])]
 class ContentTextVariant extends AbstractTranslatable
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    #[Groups(['content:read', 'translations'])]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    #[Groups(['content:read', 'onebot:read'])]
+    private $id;
 
     #[ORM\ManyToOne(targetEntity: ContentText::class, inversedBy: 'contentTextVariants')]
     #[ORM\JoinColumn(nullable: false)]
-    private ?\App\Entity\ContentText $contentText = null;
+    private ?ContentText $contentText = null;
 
     /**
-     * @var \Doctrine\Common\Collections\Collection<\App\Entity\Channel>
+     * @var Collection<Channel>
      */
     #[ORM\ManyToMany(targetEntity: Channel::class, inversedBy: 'contentTextVariants')]
-    #[Groups(['content:read', 'content:write'])]
-    private \Doctrine\Common\Collections\Collection $channels;
+    #[Groups(['content:read', 'content:write', 'onebot:read'])]
+    #[ApiProperty(readableLink:false)]
+    private Collection $channels;
+
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE)]
     #[Groups(['content:read'])]
@@ -40,26 +48,27 @@ class ContentTextVariant extends AbstractTranslatable
     #[Groups(['content:read'])]
     private $updatedAt;
 
-    #[Groups(['content:read'])]
+    #[Groups(['content:read', 'onebot:read'])]
     protected $text;
 
     /**
-     * @var \Doctrine\Common\Collections\Collection<int, \App\Entity\ContentTextVariantTranslation>|\App\Entity\ContentTextVariantTranslation[]
+     * @var Collection<int, ContentTextVariantTranslation>|ContentTextVariantTranslation[]
      */
     #[ORM\OneToMany(targetEntity: 'ContentTextVariantTranslation', mappedBy: 'translatable', fetch: 'EAGER', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
-    #[Groups(['content:write', 'translations'])]
+    #[Groups(['content:write', 'onebot:read', 'translations'])]
+    #[ApiProperty(writableLink: true)]
     protected Collection $translations;
 
     public $timezone = 'Africa/Nairobi';
 
     public function __construct()
     {
-        $this->translations = new \Doctrine\Common\Collections\ArrayCollection();
+        $this->translations = new ArrayCollection();
         parent::__construct();
         $this->channels = new ArrayCollection();
     }
 
-    public function getId(): ?int
+    public function getId(): ?string
     {
         return $this->id;
     }

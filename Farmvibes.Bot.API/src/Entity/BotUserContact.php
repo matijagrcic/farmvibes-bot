@@ -16,15 +16,18 @@ use App\Repository\BotUserContactRepository;
 use App\Repository\ChannelRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ApiResource(uriTemplate: '/bot_users/{id}/bot_user_contacts.{_format}', uriVariables: ['id' => new Link(fromClass: \App\Entity\BotUser::class, identifiers: ['id'], toProperty: 'user')], status: 200, operations: [new GetCollection()])]
 #[ORM\Entity(repositoryClass: BotUserContactRepository::class)]
 class BotUserContact
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    private $id;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 50)]
     #[Groups(['botUser:read', 'botUser:write'])]
@@ -39,7 +42,7 @@ class BotUserContact
     #[ORM\JoinColumn(nullable: false)]
     private ?\App\Entity\BotUser $user = null;
     
-    public function getId() : ?int
+    public function getId() : ?string
     {
         return $this->id;
     }

@@ -19,17 +19,20 @@ use Gedmo\Mapping\Annotation as Gedmo;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslatable;
 use Locastic\ApiPlatformTranslationBundle\Model\TranslationInterface;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ApiResource(normalizationContext: ['groups' => ['questionType:read']], denormalizationContext: ['groups' => ['questionType:write']], filters: ['translation.groups'])]
 #[ORM\Entity(repositoryClass: QuestionTypeAttributeRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 class QuestionTypeAttribute extends AbstractTranslatable
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
     #[Groups(['questionType:read', 'question:read', 'service:read'])]
-    private ?int $id = null;
+    private $id;
 
     #[Groups(['questionType:read', 'question:read', 'service:read'])]
     protected $name;
@@ -60,7 +63,7 @@ class QuestionTypeAttribute extends AbstractTranslatable
      * @var \Doctrine\Common\Collections\Collection<int, \App\Entity\QuestionTypeAttributeTranslation>|\App\Entity\QuestionTypeAttributeTranslation[]
      */
     #[ORM\OneToMany(targetEntity: QuestionTypeAttributeTranslation::class, mappedBy: 'translatable', fetch: 'EXTRA_LAZY', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
-    #[Groups(['question:read', 'questionType:write', 'questionType:read', 'translations', 'service:read'])]
+    #[Groups(['translations', 'questionType:write'])]
     protected Collection $translations;
 
     public $timezone = 'Africa/Nairobi';
@@ -71,7 +74,7 @@ class QuestionTypeAttribute extends AbstractTranslatable
         $this->translations = new \Doctrine\Common\Collections\ArrayCollection();
         $this->questionType = new ArrayCollection();
     }
-    public function getId() : ?int
+    public function getId() : ?string
     {
         return $this->id;
     }

@@ -25,14 +25,14 @@ class QuestionTypeTranslation extends AbstractTranslation
 
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 50)]
-    #[Groups(['question:read', 'question:write', 'translations'])]
+    #[Groups(['question:write', 'translations'])]
     private ?string $name = null;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
-    #[Groups(['question:read', 'question:write', 'translations'])]
+    #[Groups(['question:write', 'translations'])]
     private ?string $description = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING)]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 7)]
     #[Groups(['question:write', 'translations'])]
     protected ?string $locale = null;
 

@@ -21,92 +21,96 @@ use Locastic\ApiPlatformTranslationBundle\Model\TranslationInterface;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 use Doctrine\Persistence\Event\LifecycleEventArgs;
+use Doctrine\DBAL\Types\Types;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Serializer\Filter\GroupFilter;
 
-#[ApiResource(order: ['createdAt' => 'DESC'], normalizationContext: ['groups' => ['service:read'], 'swagger_definition_name' => 'Read'], denormalizationContext: ['groups' => ['service:write'], 'swagger_definition_name' => 'Write'], filters: ['translation.groups'])]
+#[ApiResource(order: ['createdAt' => 'DESC'],filters: ['translation.groups'])]
+#[ApiResource(normalizationContext: ['groups' => ['service:read','uxServiceRequest:read']])]
+#[ApiResource(denormalizationContext: ['groups' => ['service:write']])]
+#[ApiFilter(SearchFilter::class, properties: ['translations.name' => 'ipartial', 'name' => 'partial'])]
+#[ApiFilter(GroupFilter::class, arguments: ['parameterName' => 'groups', 'overrideDefaultGroups' => false, 'whitelist' => ['uxServiceRequest:read', 'onebot:read']])]
 #[ORM\Entity]
 #[ORM\HasLifecycleCallbacks]
 class Service extends AbstractTranslatable
 {
     const DEFAULT_SUB_TYPE = 'default';
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
+    #[ORM\Column(type: Types::GUID)]
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
     #[Assert\Uuid]
-    #[Groups(['service:read'])]
+    #[Groups(["service:read", "uxServiceRequest:read", "onebot:read"])]
     private $id;
 
     /**
      * @var \Doctrine\Common\Collections\Collection<\App\Entity\Question>
      */
     #[ORM\OneToMany(targetEntity: Question::class, mappedBy: 'service', orphanRemoval: true)]
-    #[Groups(['service:read'])]
-    private \Doctrine\Common\Collections\Collection $questions;
+    #[Groups(['service:read', 'onebot:read'])]
+    private Collection $questions;
     
     /**
      *  @var string
      */
-    #[Groups(['service:read', 'translations'])]
+    #[Groups(['service:read', 'onebot:read'])]
     protected $name;
-    
-    /**
-     * @var \Doctrine\Common\Collections\Collection<\App\Entity\ServiceConstraint>
-     */
-    #[ORM\OneToMany(targetEntity: ServiceConstraint::class, mappedBy: 'service', orphanRemoval: true, cascade: ['PERSIST'])]
-    #[Groups(['service:read', 'service:write'])]
-    private \Doctrine\Common\Collections\Collection $serviceConstraints;
     
     /**
      * @var \Doctrine\Common\Collections\Collection<int, \App\Entity\ServiceTranslation>|\App\Entity\ServiceTranslation[]
      */
-    #[ORM\OneToMany(targetEntity: ServiceTranslation::class, mappedBy: 'translatable', fetch: 'EXTRA_LAZY', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
+    #[ORM\OneToMany(targetEntity: ServiceTranslation::class, mappedBy: 'translatable', fetch: 'EAGER', indexBy: 'locale', cascade: ['PERSIST','REMOVE'], orphanRemoval: true)]
     #[Groups(['service:write', 'translations'])]
     protected Collection $translations;
     
     #[ORM\ManyToOne(targetEntity: ServiceType::class, inversedBy: 'services')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['service:read', 'service:write'])]
+    #[Groups(['service:read', 'service:write', 'uxServiceRequest:read', 'onebot:read'])]
+    #[ApiProperty(readableLink: false )]
     private ?\App\Entity\ServiceType $type = null;
     
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::BOOLEAN)]
-    #[Groups(['service:read', 'service:write'])]
+    #[ORM\Column(type: Types::BOOLEAN)]
+    #[Groups(['service:read', 'service:write', 'uxServiceRequest:read', 'onebot:read'])]
     private ?bool $isPublished = false;
     
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE)]
-    #[Groups(['service:read'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
+    #[Groups(['service:read', 'uxServiceRequest:read'])]
     private $createdAt;
     
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE, nullable: true)]
-    #[Groups(['service:read'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups(['service:read', 'uxServiceRequest:read'])]
     private $updatedAt;
     
     /**
      * @var \Doctrine\Common\Collections\Collection<\App\Entity\MenuNode>
      */
     #[ORM\OneToMany(targetEntity: MenuNode::class, mappedBy: 'service', orphanRemoval: true)]
-    private \Doctrine\Common\Collections\Collection $menuNodes;
+    private Collection $menuNodes;
     
     #[ORM\ManyToOne(targetEntity: ServiceSubType::class, inversedBy: 'services')]
-    #[Groups(['service:read'])]
+    #[Groups(['service:read', 'onebot:read'])]
     private ?\App\Entity\ServiceSubType $subtype = null;
     
     private $timezone = 'Africa/Nairobi';
     
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::BOOLEAN)]
-    #[Groups(['service:read', 'service:write'])]
+    #[ORM\Column(type: Types::BOOLEAN)]
+    #[Groups(['service:read', 'service:write', 'onebot:read', 'uxServiceRequest:read'])]
     private ?bool $singleAccess = false;
     
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::BOOLEAN)]
-    #[Groups(['service:read', 'service:write'])]
+    #[ORM\Column(type: Types::BOOLEAN)]
+    #[Groups(['service:read', 'service:write', 'onebot:read', 'uxServiceRequest:read'])]
     private ?bool $backAfterCompletion = false;
+
+    #[ORM\Column(nullable: true)]
+    #[Groups(['service:read', 'service:write', 'onebot:read', 'uxServiceRequest:read'])]
+    private ?bool $isSystem = null;
     
     public function __construct()
     {
         parent::__construct();
-        $this->translations = new \Doctrine\Common\Collections\ArrayCollection();
+        $this->translations = new ArrayCollection();
         $this->questions = new ArrayCollection();
-        $this->contraints = new ArrayCollection();
-        $this->serviceConstraints = new ArrayCollection();
+        $this->constraints = new ArrayCollection();
         $this->menuNodes = new ArrayCollection();
     }
     public function getId() : ?string
@@ -162,50 +166,7 @@ class Service extends AbstractTranslatable
     {
         $this->getTranslation()->setConclusion($conclusion);
     }
-    /**
-     * @return Collection|Constraint[]
-     */
-    public function getContraints() : Collection
-    {
-        return $this->contraints;
-    }
-    public function addContraint(Constraint $contraint) : self
-    {
-        if (!$this->contraints->contains($contraint)) {
-            $this->contraints[] = $contraint;
-        }
-        return $this;
-    }
-    public function removeContraint(Constraint $contraint) : self
-    {
-        $this->contraints->removeElement($contraint);
-        return $this;
-    }
-    /**
-     * @return Collection|ServiceConstraint[]
-     */
-    public function getServiceConstraints() : Collection
-    {
-        return $this->serviceConstraints;
-    }
-    public function addServiceConstraint(ServiceConstraint $serviceConstraint) : self
-    {
-        if (!$this->serviceConstraints->contains($serviceConstraint)) {
-            $this->serviceConstraints[] = $serviceConstraint;
-            $serviceConstraint->setService($this);
-        }
-        return $this;
-    }
-    public function removeServiceConstraint(ServiceConstraint $serviceConstraint) : self
-    {
-        if ($this->serviceConstraints->removeElement($serviceConstraint)) {
-            // set the owning side to null (unless already changed)
-            if ($serviceConstraint->getService() === $this) {
-                $serviceConstraint->setService(null);
-            }
-        }
-        return $this;
-    }
+    
     public function __toString()
     {
         return $this->getName() === null ? "New" : $this->getName();
@@ -234,7 +195,9 @@ class Service extends AbstractTranslatable
     #[ORM\PrePersist]
     public function beforeSave(LifecycleEventArgs $event)
     {
-        $this->createdAt = new \DateTimeImmutable('now', new \DateTimeZone($this->timezone));
+        $now = new \DateTimeImmutable('now', new \DateTimeZone($this->timezone));
+        $this->createdAt = $now;
+        $this->updatedAt = $now;
         //If we have no sub-type, let's set the default
         if (!$this->subtype instanceof ServiceSubType) {
             $subtype = $event->getObjectManager()->getRepository(ServiceSubType::class)->findOneBy(['name' => self::DEFAULT_SUB_TYPE]);
@@ -321,6 +284,18 @@ class Service extends AbstractTranslatable
     public function setBackAfterCompletion(bool $backAfterCompletion) : self
     {
         $this->backAfterCompletion = $backAfterCompletion;
+        return $this;
+    }
+
+    public function isIsSystem(): ?bool
+    {
+        return $this->isSystem;
+    }
+
+    public function setIsSystem(?bool $isSystem): self
+    {
+        $this->isSystem = $isSystem;
+
         return $this;
     }
 }

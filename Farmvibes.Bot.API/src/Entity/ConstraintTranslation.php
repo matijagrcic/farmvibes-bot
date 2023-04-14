@@ -9,34 +9,37 @@ use ApiPlatform\Core\Annotation\ApiResource;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ORM\Entity]
 #[UniqueEntity(fields: ['locale', 'label'])]
 class ConstraintTranslation extends AbstractTranslation
 {
     
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    #[ORM\GeneratedValue]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    private $id;
 
     #[ORM\ManyToOne(targetEntity: 'Constraint', inversedBy: 'translations')]
     protected ?TranslatableInterface $translatable = null;
+    
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 150)]
+    #[Groups(['translations'])]
+    private ?string $name = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 100)]
-    #[Groups(['read', 'write', 'translations'])]
-    #[Assert\NotBlank]
-    protected ?string $name = null;
-
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
-    #[Groups(['read', 'write', 'translations'])]
+        
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 200)]
+    #[Groups(['translations'])]
     private ?string $description = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING)]
-    #[Groups(['write', 'translations'])]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 7)]
+    #[Groups(['translations'])]
     protected ?string $locale = null;
 
-    public function getId(): ?int
+    public function getId(): ?string
     {
         return $this->id;
     }
@@ -52,8 +55,7 @@ class ConstraintTranslation extends AbstractTranslation
 
         return $this;
     }
-
-    public function getDescription(): ?string
+        public function getDescription(): ?string
     {
         return $this->description;
     }

@@ -17,25 +17,23 @@ class ValidationAttributeTranslation extends AbstractTranslation
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
     #[Assert\Uuid]
-    #[Groups(['translations', 'validationAttribute:read'])]
+    #[Groups(['translations'])]
     private $id;
     
     #[ORM\ManyToOne(targetEntity: 'ValidationAttribute', inversedBy: 'translations')]
     protected ?TranslatableInterface $translatable = null;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 150)]
-    #[Groups(['validationAttribute:read', 'validationAttribute:write', 'translations'])]
+    #[Groups(['validationAttribute:write', 'translations'])]
     private ?string $description = null;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 400)]
-    #[Groups(['validationAttribute:read', 'validationAttribute:write', 'translations'])]
+    #[Groups(['validationAttribute:write', 'translations'])]
     private ?string $errorMessage = null;
 
-    /**
-     * @var null|string
-     */
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 5)]
-    #[Groups(['validationAttribute:read', 'translations', 'validationAttribute:write'])]
+
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 7)]
+    #[Groups(['validationAttribute:write', 'translations'])]
     protected ?string $locale = null;
 
     public function getId(): ?string

@@ -9,30 +9,33 @@ use ApiPlatform\Core\Annotation\ApiResource;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ORM\Entity]
 #[UniqueEntity(fields: ['locale', 'label'])]
 class ContentTranslation extends AbstractTranslation
 {
     
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    #[ORM\GeneratedValue]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    private $id;
 
     #[ORM\ManyToOne(targetEntity: 'Content', inversedBy: 'translations')]
     protected ?TranslatableInterface $translatable = null;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
     #[Assert\NotBlank]
-    #[Groups(['content:read', 'content:write', 'translations'])]
+    #[Groups(['content:write', 'translations'])]
     private ?string $label = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING)]
-    #[Groups(['content:write', 'content:read', 'translations'])]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 7)]
+    #[Groups(['content:write', 'translations'])]
     protected ?string $locale = null;
 
-    public function getId(): ?int
+    public function getId(): ?string
     {
         return $this->id;
     }

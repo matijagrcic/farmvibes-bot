@@ -12,7 +12,13 @@ use Symfony\Component\HttpFoundation\Request;
  */
 
 class MediaUploadController extends AbstractController
-{
+{    
+    /**
+     * __invoke
+     *
+     * @param  mixed $request
+     * @return void
+     */
     public function __invoke(Request $request)
     {         
         $file = $request->files->get('file');

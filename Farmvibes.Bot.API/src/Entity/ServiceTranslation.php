@@ -9,40 +9,40 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ORM\Entity]
 class ServiceTranslation extends AbstractTranslation
 {
 
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    #[Groups(['service:read'])]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    #[Groups(['service:read','uxServiceRequest:read'])]
+    private $id;
 
     #[ORM\ManyToOne(targetEntity: 'Service', inversedBy: 'translations')]
     protected ?TranslatableInterface $translatable = null;
     
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 150)]
-    #[Groups(['service:read', 'service:write', 'translations'])]
+    #[Groups(['service:write', 'translations'])]
     private ?string $name = null;
 
-    /**
-     * @var null|string
-     */
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 5)]
-    #[Groups(['service:read', 'translations', 'service:write'])]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 7)]
+    #[Groups(['service:write', 'translations'])]
     protected ?string $locale = null;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 500, nullable: true)]
-    #[Groups(['service:read', 'translations', 'service:write'])]
+    #[Groups(['service:write', 'translations'])]
     private ?string $introduction = null;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 500, nullable: true)]
-    #[Groups(['service:read', 'translations', 'service:write'])]
+    #[Groups(['service:write', 'translations'])]
     private ?string $conclusion = null;
 
-    public function getId(): ?int
+    public function getId(): ?string
     {
         return $this->id;
     }

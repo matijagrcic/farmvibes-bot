@@ -5,30 +5,39 @@
   "prefer-stable": true,
   "require": {
     "php": ">=8.1",
+    "ext-apcu": "*",
     "ext-ctype": "*",
     "ext-iconv": "*",
+    "ext-intl": "*",
     "api-platform/core": "^3.0",
     "composer/package-versions-deprecated": "1.11.99.2",
-    "doctrine/doctrine-bundle": "^2.4",
+    "doctrine/doctrine-bundle": "^2.7",
     "doctrine/doctrine-migrations-bundle": "^3.1",
-    "doctrine/orm": "^2.9",
+    "doctrine/orm": "^2.14",
+    "firebase/php-jwt": "^6.4",
     "gedmo/doctrine-extensions": "^3.10",
     "knplabs/doctrine-behaviors": "^2.6",
-    "lexik/jwt-authentication-bundle": "^2.12",
     "locastic/api-platform-translation-bundle": "^1.3",
+    "metaclass-nl/filter-bundle": "@dev",
     "microsoft/azure-storage-blob": "^1.5",
     "nelmio/cors-bundle": "^2.1",
     "phpdocumentor/reflection-docblock": "^5.2",
     "phpoffice/phpspreadsheet": "^1.19",
     "sensio/framework-extra-bundle": "^6.1",
+    "sylius-labs/doctrine-migrations-extra-bundle": "^0.2.0",
     "symfony/asset": "^6.0",
     "symfony/console": "^6.0",
+    "symfony/doctrine-messenger": "^6.0",
     "symfony/dotenv": "^6.0",
     "symfony/expression-language": "^6.0",
+    "symfony/filesystem": "^6.0",
     "symfony/flex": "^1.3.1",
     "symfony/framework-bundle": "^6.0",
     "symfony/http-foundation": "^6.0",
+    "symfony/messenger": "^6.0",
     "symfony/mime": "^6.0",
+    "symfony/monolog-bundle": "^3.8",
+    "symfony/password-hasher": "^6.0",
     "symfony/property-access": "^6.0",
     "symfony/property-info": "^6.0",
     "symfony/proxy-manager-bridge": "^6.0",
@@ -38,7 +47,8 @@
     "symfony/twig-bundle": "^6.0",
     "symfony/uid": "^6.0",
     "symfony/validator": "^6.0",
-    "symfony/yaml": "^6.0"
+    "symfony/yaml": "^6.0",
+    "thenetworg/oauth2-azure": "^2.1"
   },
   "config": {
     "optimize-autoloader": true,
@@ -49,7 +59,8 @@
     "allow-plugins": {
       "symfony/flex": true,
       "symfony/runtime": true
-    }
+    },
+    "process-timeout": 3600
   },
   "autoload": {
     "psr-4": {
@@ -68,11 +79,16 @@
   },
   "scripts": {
     "auto-scripts": {
-      "lexik:jwt:generate-keypair --skip-if-exists": "symfony-cmd",
-      "cache:clear": "symfony-cmd",
-      "assets:install %PUBLIC_DIR%": "symfony-cmd"
-    },
+      "doctrine:schema:update --force --dump-sql": "symfony-cmd",
+      "app:run-command -c clean-translations": "symfony-cmd",
+      "cache:clear ": "symfony-cmd",
+      "messenger:stop-workers": "symfony-cmd",
+      "assets:install %PUBLIC_DIR%": "symfony-cmd",
+      "messenger:consume async --limit=10 --time-limit=300 --memory-limit=128M": "symfony-cmd"
+    }, 
+    "setup-db": "php bin/console doctrine:database:create --if-not-exists",
     "post-install-cmd": [
+      "@setup-db",
       "@auto-scripts"
     ],
     "post-update-cmd": [

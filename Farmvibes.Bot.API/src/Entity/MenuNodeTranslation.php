@@ -9,35 +9,39 @@ use ApiPlatform\Core\Annotation\ApiResource;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+use Doctrine\DBAL\Types\Types;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ORM\Entity]
 #[UniqueEntity(fields: ['locale', 'label'])]
 class MenuNodeTranslation extends AbstractTranslation
 {
     
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    #[ORM\GeneratedValue]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    private $id;
 
     #[ORM\ManyToOne(targetEntity: 'MenuNode', inversedBy: 'translations')]
     #[ORM\JoinColumn(onDelete: 'CASCADE')]
     protected ?TranslatableInterface $translatable = null;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 100)]
-    #[Groups(['menuNode:read', 'menuNode:write', 'translations'])]
+    #[Groups(['menuNode:write', 'translations'])]
     #[Assert\NotBlank]
     protected ?string $label = null;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
-    #[Groups(['menuNode:read', 'menuNode:write', 'translations'])]
+    #[Groups(['menuNode:write', 'translations'])]
     private ?string $description = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING)]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 7)]
     #[Groups(['menuNode:write', 'translations'])]
     protected ?string $locale = null;
 
-    public function getId(): ?int
+    public function getId(): ?string
     {
         return $this->id;
     }

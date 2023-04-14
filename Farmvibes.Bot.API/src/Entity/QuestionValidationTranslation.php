@@ -17,18 +17,18 @@ class QuestionValidationTranslation extends AbstractTranslation
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
     #[Assert\Uuid]
-    #[Groups(['questionValidation:read', 'translations', 'question:read'])]
+    #[Groups([ 'translations'])]
     protected $id;
 
     #[ORM\ManyToOne(targetEntity: 'QuestionValidation', inversedBy: 'translations')]
     protected ?TranslatableInterface $translatable = null;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
-    #[Groups(['questionValidation:read', 'questionValidation:write', 'translations', 'question:read'])]
+    #[Groups(['questionValidation:write', 'translations'])]
     private ?string $errorMessage = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING)]
-    #[Groups(['questionValidation:write', 'translations', 'question:read'])]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 7)]
+    #[Groups(['questionValidation:write', 'translations'])]
     protected ?string $locale = null;
 
     public function getId(): ?string

@@ -2,166 +2,209 @@
 
 namespace App\Entity;
 
+use App\Repository\AdminUserRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Metadata\Post;
-use ApiPlatform\Metadata\Put;
-use ApiPlatform\Metadata\Delete;
-use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Get;
+use Symfony\Component\Security\Core\User\UserInterface;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\ApiProperty;
-use ApiPlatform\Metadata\ApiFilter;
-use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
-use App\Repository\AdminUserRepository;
-use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
-use Symfony\Component\Security\Core\User\UserInterface;
-use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Serializer\Annotation\Groups;
-use App\State\AdminUserProvider;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
+use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: AdminUserRepository::class)]
-#[ORM\Table(name: 'admin_users')]
+#[ApiResource(order: ['createdAt' => 'DESC'], normalizationContext: ['groups' => ['adminUser:read']], denormalizationContext: ['groups' => ['adminUser:write']])]
+#[ORM\Table(name:"admin_user")]
 #[ORM\HasLifecycleCallbacks]
-#[ApiResource(operations: [new Get(), new Patch(), new Delete(), new Put(), new Post(), new GetCollection()], normalizationContext: ['groups' => ['adminUser:read']], denormalizationContext: ['groups' => ['adminUser:write']])]
-#[ApiFilter(SearchFilter::class, properties: ['email' => 'exact'])]
-class AdminUser implements UserInterface, PasswordAuthenticatedUserInterface
+class AdminUser implements UserInterface
 {
-    /**
-     * Table row identifier.
-     */
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
     #[Groups(['adminUser:read'])]
-    private ?int $id = null;
-    /**
-     * The email of the administrative user.
-     */
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 180, unique: true)]
+    private $id;
+
+    #[ORM\Column(length: 180, unique: true)]
     #[Groups(['adminUser:read', 'adminUser:write'])]
     private ?string $email = null;
-    /**
-     * Administrative user access levels are accessed through this field as a JSON array.
-     */
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::JSON)]
+
+    #[ORM\Column]
+    #[Groups(['adminUser:read'])]
+    private array $roles = [];
+
+    #[ORM\Column(length: 50)]
     #[Groups(['adminUser:read', 'adminUser:write'])]
-    private $roles = [];
-    /**
-     * Administrative user username field.
-     */
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 80)]
+    private string $firstName;
+
+    #[ORM\Column(length: 50)]
     #[Groups(['adminUser:read', 'adminUser:write'])]
-    private ?string $username = null;
-    /**
-     * Administrative user password.
-     * @var string The hashed password
-     */
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING)]
-    private ?string $password = null;
-    /**
-     * Administrative user locale.
-     * @see getLanguage 
-     * @see setLanguage
-     */
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 10)]
+    private string $surname;
+
+    #[ORM\Column(length: 3)]
     #[Groups(['adminUser:read', 'adminUser:write'])]
-    private ?string $language = "en";
-    public function getId() : ?int
+    private ?string $language = null;
+
+    #[ORM\Column(nullable: true)]
+    #[Groups(['adminUser:read'])]
+    private ?\DateTimeImmutable $createdAt = null;
+
+    private $timezone = 'Africa/Nairobi';
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?\DateTimeInterface $lastLogin = null;
+
+    #[ORM\Column(type: Types::GUID, nullable: true)]
+    private ?string $azureAdId = null;
+
+    public function getId(): ?string
     {
         return $this->id;
     }
-    public function getEmail() : ?string
+
+    public function getEmail(): ?string
     {
         return $this->email;
     }
-    public function setEmail(string $email) : self
+
+    public function setEmail(string $email): self
     {
         $this->email = $email;
+
         return $this;
     }
+
     /**
      * A visual identifier that represents this user.
      *
      * @see UserInterface
      */
-    public function getUserIdentifier() : string
+    public function getUserIdentifier(): string
     {
-        return (string) $this->email;
+        return (string) (null !== $this->email) ? $this->email : Uuid::v4();
     }
-    /**
-     * @deprecated since Symfony 5.3, use getUserIdentifier instead
-     */
-    public function getUsername() : string
-    {
-        return (string) $this->email;
-    }
+
     /**
      * @see UserInterface
      */
-    public function getRoles() : array
+    public function getRoles(): array
     {
         $roles = $this->roles;
         // guarantee every user at least has ROLE_USER
         $roles[] = 'ROLE_USER';
+
         return array_unique($roles);
     }
-    public function setRoles(array $roles) : self
+
+    public function setRoles(array $roles): self
     {
         $this->roles = $roles;
+
         return $this;
     }
-    /**
-     * @see PasswordAuthenticatedUserInterface
-     */
-    public function getPassword() : string
+
+    public function getFirstName(): ?string
     {
-        return $this->password;
+        return $this->firstName;
     }
-    public function setPassword(string $password) : self
+
+    public function setFirstName(string $firstName): self
     {
-        $this->password = $password;
+        $this->firstName = $firstName;
+
         return $this;
     }
+
+    public function getSurname(): ?string
+    {
+        return $this->surname;
+    }
+
+    public function setSurname(string $surname): self
+    {
+        $this->surname = $surname;
+
+        return $this;
+    }
+
+    public function getLanguage(): ?string
+    {
+        return $this->language;
+    }
+
+    public function setLanguage(string $language): self
+    {
+        $this->language = $language;
+
+        return $this;
+    }
+
+    public function getCreatedAt(): ?\DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
+    public function setCreatedAt(?\DateTimeImmutable $createdAt): self
+    {
+        $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
     /**
-     * Returning a salt is only needed, if you are not using a modern
-     * hashing algorithm (e.g. bcrypt or sodium) in your security.yaml.
-     *
-     * @see UserInterface
+     * @throws \Exception
      */
-    public function getSalt() : ?string
+    #[ORM\PrePersist]
+    public function beforeSave()
+    {
+        $this->setCreatedAt(new \DateTimeImmutable('now', new \DateTimeZone($this->timezone)));
+    }
+
+    public function getLastLogin(): ?\DateTimeInterface
+    {
+        return $this->lastLogin;
+    }
+
+    public function setLastLogin(?\DateTimeInterface $lastLogin): self
+    {
+        $this->lastLogin = $lastLogin;
+
+        return $this;
+    }
+
+    public function getAzureAdId(): ?string
+    {
+        return $this->azureAdId;
+    }
+
+    public function setAzureAdId(?string $azureAdId): self
+    {
+        $this->azureAdId = $azureAdId;
+
+        return $this;
+    }
+
+    public function getPassword(): string
+    {
+        
+    }
+
+    public function setPassword(string $password): self
+    {
+        
+    }
+
+    public function getSalt(): ?string
     {
         return null;
     }
+
     /**
      * @see UserInterface
      */
     public function eraseCredentials()
     {
-        // If you store any temporary, sensitive data on the user, clear it here
-        // $this->plainPassword = null;
-    }
-    /**
-     * Gets administrative user's username field as a string 
-     *
-     * @return string
-     */
-    public function __toString() : string
-    {
-        return $this->username;
-    }
-    /**
-     * Return administrative user's language field as a string
-     *
-     * @return string|null
-     */
-    public function getLanguage() : ?string
-    {
-        return $this->language;
-    }
-    public function setLanguage(string $language) : self
-    {
-        $this->language = $language;
-        return $this;
+
     }
 }

@@ -9,30 +9,37 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Doctrine\DBAL\Types\Types;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ORM\Entity]
 class QuestionTranslation extends AbstractTranslation
 {
 
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    protected ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    protected ?string $id = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING)]
-    #[Groups(['translations', 'service:write', 'question:write', 'service:read'])]
+    #[ORM\Column(type: Types::STRING, length: 7)]
+    #[Groups(['translations', 'service:write', 'question:write'])]
+
     protected ?string $locale = null;
 
     #[ORM\ManyToOne(targetEntity: 'Question', inversedBy: 'translations')]
     protected ?TranslatableInterface $translatable = null;
     
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255)]
+    #[ORM\Column(type: Types::STRING, length: 255)]
     #[Assert\NotBlank]
-    #[Groups(['service:read', 'service:write', 'question:read', 'question:write'])]
+    #[Groups(['service:write', 'question:write', 'translations'])]
+
     private ?string $question = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
-    #[Groups(['service:read', 'service:write', 'question:write'])]
+    #[ORM\Column(type: Types::STRING, length: 255, nullable: true)]
+    #[Groups(['service:write', 'question:write','translations'])]
+
     private ?string $hint = null;
 
     public function getQuestion(): ?string

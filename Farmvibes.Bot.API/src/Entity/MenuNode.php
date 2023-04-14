@@ -11,6 +11,7 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use App\Repository\MenuNodeRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -21,113 +22,151 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Serializer\Annotation\Groups;
 use App\Controller\NodesByMenu;
 use App\Controller\PublishAllNodes;
-use App\Controller\NodePersist;
 use Symfony\Component\Serializer\Annotation\MaxDepth;
 use Gedmo\Mapping\Annotation as Gedmo;
 use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 use App\Dto\MenuNodeInput;
 use Gedmo\Tree\Entity\Repository\NestedTreeRepository;
+use Doctrine\DBAL\Types\Types;
+use ApiPlatform\Doctrine\Orm\Filter\BooleanFilter;
 
 #[Gedmo\Tree(type: 'nested')]
-#[ApiResource(operations: [new Get(), new Patch(), new Delete(), new Put(), new Get(uriTemplate: '/menu_nodes/{root}/nodes', controller: NodesByMenu::class, read: false, openapiContext: ['parameters' => [['name' => 'root', 'in' => 'path', 'description' => 'Id of the root node', 'type' => 'string', 'required' => false, 'example' => '9dd79e66-0684-4f34-be80-889ef1c06344']], 'description' => 'This endpoint fetches node object formated in a way that the bot and menu builder. If the root is provided, the result will only consist of a single tree otherwise all available trees will be returned.', 'summary' => 'Fetches nodes in arranged in tree format']), new Post(controller: PublishAllNodes::class, read: false, uriTemplate: '/menu_nodes/publish_menu', openapiContext: ['summary' => 'Publish menu node', 'description' => 'This endpoint allows publication of menu node(s). The user can decided to publish only the menu node or all nodes in the tree.', 'parameters' => [['name' => 'node', 'in' => 'path', 'description' => 'Id of the node', 'type' => 'string', 'required' => true, 'example' => '9dd79e66-0684-4f34-be80-889ef1c06344'], ['name' => 'publish', 'in' => 'path', 'description' => 'String indicating whether to publish all or single node', 'type' => 'string', 'required' => true, 'example' => 'all / single'], ['name' => 'isPublished', 'in' => 'path', 'description' => 'New status of the nodes', 'type' => 'bool', 'required' => true, 'example' => 'true / false']]]), new GetCollection(), new Post(), new Post(controller: NodePersist::class, uriTemplate: '/menu_nodes/persist', read: false, deserialize: false)], forceEager: false, normalizationContext: ['groups' => ['menuNode:read']], denormalizationContext: ['groups' => ['menuNode:write']], filters: ['translation.groups'])]
+#[ApiResource(
+    operations: [new Get(order: ['root, lft' => 'ASC']), new Patch(normalizationContext: ['uxMenus:read', 'translations']), new Delete(), new GetCollection(normalizationContext: ['uxMenus:read', 'onebot:read']),
+    new Get(
+        uriTemplate: '/menu_nodes/{root}/nodes', 
+        controller: NodesByMenu::class, 
+        read: false,
+        normalizationContext: ['uxMenus:tree'],
+        openapiContext: 
+        [
+            'parameters' => [
+            ['name' => 'root', 
+            'in' => 'path', 
+            'description' => 'Id of the root node', 
+            'type' => 'string', 
+            'required' => false, 
+            'example' => '9dd79e66-0684-4f34-be80-889ef1c06344']
+        ], 
+        'description' => 'This endpoint fetches node object formated in a way that the bot and menu builder. If the root is provided, the result will only consist of a single tree otherwise all available trees will be returned.', 
+        'summary' => 'Fetches nodes in arranged in tree format'
+        ]
+    ),
+    new Post(normalizationContext: ['groups' => ['uxMenus:read','translations','uxMenus:tree']])], 
+    normalizationContext: ['groups' => ['menuNode:read','uxMenus:write','uxMenus:read']], 
+    denormalizationContext: ['groups' => ['menuNode:write']], 
+    filters: ['translation.groups'])
+    ]
+#[ApiFilter(SearchFilter::class, properties: ['type' => 'exact','root' => 'exact'])]
+#[ApiFilter(BooleanFilter::class, properties: ['isPublished'])]
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: NestedTreeRepository::class)]
+#[ORM\Index(columns: ['root'], name: 'root_idx')]
 class MenuNode extends AbstractTranslatable
 {
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
+    #[ORM\Column(type: Types::GUID)]
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
     #[Assert\Uuid]
-    #[Groups(['menuNode:read'])]
+    #[Groups(['menuNode:read','uxMenus:read','uxMenus:tree', 'onebot:read'])]
     private $id;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER, nullable: true)]
-    #[Groups(['menuNode:read', 'menuNode:write'])]
+    #[ORM\Column(type: Types::INTEGER, nullable: true)]
+    #[Groups(['menuNode:read', 'menuNode:write','uxMenus:tree', 'onebot:read'])]
     private ?int $position = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE)]
-    #[Groups(['menuNode:read'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
+    #[Groups(['menuNode:read','uxMenus:read','uxMenus:tree'])]
     private $createdAt;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE, nullable: true)]
-    #[Groups(['menuNode:read'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups(['menuNode:read','uxMenus:read','uxMenus:tree'])]
     private $updatedAt;
     /**
-     * @var \Doctrine\Common\Collections\Collection<\App\Entity\MenuNodeConstraint>
+     * @var Collection<MenuNodeConstraint>
      */
-    #[ORM\OneToMany(targetEntity: MenuNodeConstraint::class, mappedBy: 'node', orphanRemoval: true, cascade: ['persist'])]
-    #[Groups(['menuNode:read', 'menuNode:write'])]
-    private \Doctrine\Common\Collections\Collection $constraints;
+    #[ORM\OneToMany(targetEntity: MenuNodeConstraint::class, mappedBy: 'node', orphanRemoval: true, cascade:['PERSIST', 'REMOVE'])]
+    #[Groups(['menuNode:read', 'menuNode:write', 'onebot:read'])]
+    #[Link(toProperty: 'constraints')]
+    private Collection $constraints;
 
     #[ORM\ManyToOne(targetEntity: MenuNodeType::class, inversedBy: 'menuNodes')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['menuNode:read', 'menuNode:write'])]
-    private ?\App\Entity\MenuNodeType $type = null;
+    #[Groups(['menuNode:read', 'menuNode:write','uxMenus:write','uxMenus:read','uxMenus:tree', 'onebot:read'])]
+    #[ApiProperty(readableLink: true)]
+    private ?MenuNodeType $type = null;
 
     #[ORM\ManyToOne(targetEntity: Service::class, inversedBy: 'menuNodes')]
-    #[Groups(['menuNode:write', 'menuNode:read'])]
-    private ?\App\Entity\Service $service = null;
+    #[Groups(['menuNode:write', 'menuNode:read','uxMenus:write','uxMenus:tree', 'onebot:read'])]
+    private ?Service $service = null;
 
     #[ORM\ManyToOne(targetEntity: Content::class, inversedBy: 'menuNodes', cascade: ['PERSIST'])]
-    #[Groups(['menuNode:write', 'menuNode:read'])]
-    private ?\App\Entity\Content $content = null;
+    #[Groups(['menuNode:write', 'menuNode:read','uxMenus:write','uxMenus:tree', 'onebot:read'])]
+    #[ApiProperty(readableLink: false)]
+    private ?Content $content = null;
 
     #[Gedmo\TreeLeft]
-    #[ORM\Column(name: 'lft', type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\Column(name: 'lft', type: Types::INTEGER)]
     private ?int $lft = null;
 
     #[Gedmo\TreeLevel]
-    #[ORM\Column(name: 'lvl', type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\Column(name: 'lvl', type: Types::INTEGER)]
     private ?int $lvl = null;
     
     #[Gedmo\TreeRight]
-    #[ORM\Column(name: 'rgt', type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\Column(name: 'rgt', type: Types::INTEGER)]
     private ?int $rgt = null;
     
     #[Gedmo\TreeRoot]
     #[ORM\ManyToOne(targetEntity: 'MenuNode')]
-    #[ORM\JoinColumn(name: 'tree_root', onDelete: 'CASCADE')]
+    #[ORM\JoinColumn(name: 'root', onDelete: 'CASCADE')]
     private ?MenuNode $root = null;
     
     #[Gedmo\TreeParent]
     #[ORM\ManyToOne(targetEntity: 'MenuNode', inversedBy: 'children')]
     #[ORM\JoinColumn(name: 'parent_id', onDelete: 'CASCADE')]
-    #[Groups(['menuNode:write', 'menuNode:read'])]
+    #[Groups(['menuNode:write', 'menuNode:read','uxMenus:tree'])]
+    #[ApiProperty(readableLink: false)]
     private ?MenuNode $parent = null;
     /**
-     * @var \Doctrine\Common\Collections\Collection<\App\Entity\MenuNode>
+     * @var Collection<MenuNode>
      */
     #[ORM\OneToMany(targetEntity: 'MenuNode', mappedBy: 'parent')]
     #[ORM\OrderBy(['lft' => 'ASC'])]
-    private \Doctrine\Common\Collections\Collection $children;
+    #[Groups(['uxMenus:write'])]
+    private Collection $children;
     /*
      * @var Attribute
      */
     public $parentId;
     
-    #[Groups(['menuNode:read'])]
-    protected $description;
     /**
-     * @var \Doctrine\Common\Collections\Collection<\App\Entity\MenuNodeTranslation>
+     * @var Collection<MenuNodeTranslation>
      */
-    #[ORM\OneToMany(targetEntity: 'MenuNodeTranslation', mappedBy: 'translatable', fetch: 'EXTRA_LAZY', indexBy: 'locale', cascade: ['PERSIST', 'REMOVE'], orphanRemoval: true)]
+    #[ORM\OneToMany(targetEntity: 'MenuNodeTranslation', mappedBy: 'translatable', fetch: 'EAGER', indexBy: 'locale', cascade: ['PERSIST', 'REMOVE'], orphanRemoval: true)]
     #[Groups(['menuNode:write', 'translations'])]
-    protected \Doctrine\Common\Collections\Collection $translations;
+    protected Collection $translations;
     
-    #[Groups(['menuNode:read'])]
+    #[Groups(['menuNode:read','uxMenus:read'])]
     protected $label;
     
     private $timezone = 'Africa/Nairobi';
     
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::BOOLEAN)]
-    #[Groups(['menuNode:read', 'menuNode:write'])]
+    #[ORM\Column(type: Types::BOOLEAN)]
+    #[Groups(['menuNode:read', 'menuNode:write','uxMenus:read', 'onebot:read'])]
     private ?bool $isPublished = false;
+
+    #[ORM\Column(type: Types::BOOLEAN)]
+    #[Groups(['menuNode:read', 'menuNode:write','uxMenus:read','onebot:read'])]
+    private ?bool $isDefault = false;
+
+    public ?string $publish = null;
     
     public function __construct()
     {
-        $this->children = new \Doctrine\Common\Collections\ArrayCollection();
-        $this->translations = new \Doctrine\Common\Collections\ArrayCollection();
+        $this->children = new ArrayCollection();
+        $this->translations = new ArrayCollection();
         parent::__construct();
         $this->constraints = new ArrayCollection();
         $this->contents = new ArrayCollection();
@@ -280,6 +319,30 @@ class MenuNode extends AbstractTranslatable
     public function setIsPublished(?bool $isPublished) : self
     {
         $this->isPublished = $isPublished;
+        return $this;
+    }
+    public function getLvl() : ?int
+    {
+        return $this->lvl;
+    }
+    public function getRgt() : ?int
+    {
+        return $this->rgt;
+    }
+    public function getLft() : ?int
+    {
+        return $this->lft;
+    }
+
+    public function isIsDefault(): ?bool
+    {
+        return $this->isDefault;
+    }
+
+    public function setIsDefault(?bool $isDefault): self
+    {
+        $this->isDefault = $isDefault;
+
         return $this;
     }
 }

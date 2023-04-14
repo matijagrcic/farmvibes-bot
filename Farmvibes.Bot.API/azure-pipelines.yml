@@ -7,18 +7,13 @@ trigger:
   - master
   - staging
 
+pr:
+  - master
+  - staging
+
 variables:
-  # Azure Resource Manager connection created during pipeline creation
-  azureSubscription: "863ebf79-3d16-4941-a9c6-fe8f74edda6c"
-
-  # Web app name
-  webAppName: "onebotapi"
-
   # Agent VM image name
   vmImageName: "ubuntu-latest"
-
-  # Environment name
-  environmentName: "onebotapi"
 
   # Root folder under which your composer.json file is available.
   rootFolder: $(System.DefaultWorkingDirectory)
@@ -70,7 +65,7 @@ stages:
             inputs:
               filePath: "crypto.sh"
             env:
-              DATABASE_URL: $(DATABASE_URL_ENV)
+              DATABASE_URL: $(DATABASE_URL_STAGING)
               PROD_ENCRYPTION_KEY: $(PROD_ENCRYPTION_KEY)
               TRANSLATOR_LOCATION: $(TRANSLATOR_LOCATION)
               BLOB_STORAGE_CONNECTION_STRING: $(BLOB_STORAGE_CONNECTION_STRING)
@@ -93,8 +88,47 @@ stages:
               archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
               replaceExistingArchive: true
 
-          - publish: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
-            displayName: "Upload package"
-            artifact: drop
+#          - publish: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+#            displayName: "Upload package"
+#            artifact: drop
 
-  
+  - stage: deploy
+    condition: or(eq(variables['build.sourceBranch'], 'refs/heads/staging'), eq(variables['build.sourceBranch'], 'refs/heads/master'))
+    jobs:
+      - job: deploy
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+        - pwsh: |
+            git checkout $(Build.SourceBranchName)
+            git remote add onebotapi https://heroku:${env:PAT}@git.heroku.com/onebotapi.git
+            git push onebotapi $(Build.SourceBranchName):master --force
+          displayName: Deploy backend to onebotapi
+          env:
+            PAT: $(PAT)
+          workingDirectory: $(Build.SourcesDirectory)
+        - pwsh: |
+            git checkout $(Build.SourceBranchName)
+            git remote add portal-app https://heroku:${env:PAT}@git.heroku.com/portal-app.git
+            git push portal-app $(Build.SourceBranchName):master --force
+          displayName: Deploy backend to portal-app
+          env:
+            PAT: $(PAT)
+          workingDirectory: $(Build.SourcesDirectory)
+        - pwsh: |
+            git checkout $(Build.SourceBranchName)
+            git remote add ocp-api https://heroku:${env:PAT}@git.heroku.com/ocp-api.git
+            git push ocp-api $(Build.SourceBranchName):master --force
+          displayName: Deploy backend to ocp-api
+          env:
+            PAT: $(PAT)
+          workingDirectory: $(Build.SourcesDirectory)
+        - pwsh: |
+            git checkout $(Build.SourceBranchName)
+            git remote add alp-api https://heroku:${env:PAT}@git.heroku.com/alp-api.git
+            git push alp-api $(Build.SourceBranchName):master --force
+          displayName: Deploy backend to alp-api
+          env:
+            PAT: $(PAT)
+          workingDirectory: $(Build.SourcesDirectory)
+

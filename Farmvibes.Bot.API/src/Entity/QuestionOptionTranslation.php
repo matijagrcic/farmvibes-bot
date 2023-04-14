@@ -8,27 +8,28 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslation;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Doctrine\DBAL\Types\Types;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ORM\Entity]
 class QuestionOptionTranslation extends AbstractTranslation
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    private $id;
 
     #[ORM\ManyToOne(targetEntity: 'QuestionOption', inversedBy: 'translations')]
     protected ?TranslatableInterface $translatable = null;
     
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 150)]
-    #[Groups(['translations', 'service:write', 'questionOption:write', 'question:write', 'question:read'])]
+    #[ORM\Column(type: Types::STRING, length: 150)]
+    #[Groups(['translations', 'service:write', 'questionOption:write', 'question:write'])]
     private ?string $value = null;
 
-    /**
-     * @var null|string
-     */
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255)]
-    #[Groups(['translations', 'service:read', 'service:write', 'questionOption:write', 'question:write', 'question:read'])]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 7)]
+    #[Groups(['service:write', 'questionOption:write', 'question:write', 'translations'])]
     protected ?string $locale = null;
 
     public function getValue(): ?string

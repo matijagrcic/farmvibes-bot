@@ -17,18 +17,21 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ApiResource(normalizationContext: ['groups' => ['serviceSubType:read']], denormalizationContext: ['groups' => ['serviceSubType:write']])]
 #[ORM\Entity(repositoryClass: ServiceSubTypeRepository::class)]
 class ServiceSubType
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    private $id;
     
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 100)]
-    #[Groups(['serviceSubType:read', 'serviceSubType:write', 'service:read'])]
+    #[Groups(['serviceSubType:read', 'serviceSubType:write', 'service:read', 'onebot:read'])]
     private ?string $name = null;
     
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
@@ -46,7 +49,7 @@ class ServiceSubType
     {
         $this->services = new ArrayCollection();
     }
-    public function getId() : ?int
+    public function getId() : ?string
     {
         return $this->id;
     }

@@ -10,9 +10,10 @@ doctrine:
     result_cache_driver:
       type: pool
       pool: doctrine.result_cache_pool
-  dbal:
-    options:
-      1009: "%env(resolve:MYSQL_CA_CERT)%"
+  # These are azure specific settings that will have to be brought back on Azure
+  # dbal:
+  #   options:
+  #     1009: "%env(resolve:MYSQL_CA_CERT)%"
 
 framework:
   cache:

@@ -8,16 +8,18 @@ use Doctrine\ORM\Mapping as ORM;
 use ApiPlatform\Core\Annotation\ApiResource;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
-
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ORM\Entity]
 class MediaTranslation extends AbstractTranslation
 {
     
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    #[ORM\GeneratedValue]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    private $id;
 
     #[ORM\ManyToOne(targetEntity: 'Media', inversedBy: 'translations')]
     protected ?TranslatableInterface $translatable = null;
@@ -27,7 +29,7 @@ class MediaTranslation extends AbstractTranslation
     #[Assert\NotBlank]
     protected ?string $caption = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING)]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 7)]
     #[Groups(['media:write', 'translations'])]
     protected ?string $locale = null;
 

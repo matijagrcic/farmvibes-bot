@@ -17,56 +17,72 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslatable;
 use Locastic\ApiPlatformTranslationBundle\Model\TranslationInterface;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
-#[ApiResource(operations: [new Get(), new Patch(security: 'is_granted(\'ROLE_ADMIN\')', normalizationContext: ['groups' => ['translations']]), new Delete(security: 'is_granted(\'ROLE_ADMIN\')'), new Post(), new GetCollection()], normalizationContext: ['groups' => ['read']], denormalizationContext: ['groups' => ['write']], filters: ['translation.groups'])]
+#[ApiResource(
+    operations: [
+        new Get(), 
+        new Patch(normalizationContext: ['groups' => ['translations','language:read']]), 
+        new Delete(), 
+        new Post(normalizationContext: ['groups' => ['translations','language:read']]), 
+        new GetCollection(order: ['isDefault' => 'DESC', 'createdAt' => 'ASC'])
+    ], 
+        normalizationContext: ['groups' => ['language:read']], 
+        denormalizationContext: ['groups' => ['language:write']], 
+        filters: ['translation.groups']
+        )
+        ]
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Entity]
 class Language extends AbstractTranslatable
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    #[Groups(['read'])]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    #[Groups(['language:read'])]
+    private $id;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE)]
-    #[Groups(['read'])]
+    #[Groups(['language:read'])]
     private $createdAt;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE, nullable: true)]
-    #[Groups(['read'])]
+    #[Groups(['language:read'])]
     private $updatedAt;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::BOOLEAN, nullable: true)]
-    #[Groups(['read', 'write'])]
-    private ?bool $isEnabled = null;
+    #[Groups(['language:read', 'language:write'])]
+    private ?bool $isEnabled = false;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 5)]
-    #[Groups(['read', 'write'])]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 7, unique: true)]
+    #[Groups(['language:read', 'language:write'])]
     private ?string $code = null;
 
     private $timezone = 'Africa/Nairobi';
     
-    /**
-     * @var \Doctrine\Common\Collections\Collection<int, \App\Entity\LanguageTranslation>|\App\Entity\LanguageTranslation[]
-     */
-    #[ORM\OneToMany(targetEntity: 'LanguageTranslation', mappedBy: 'translatable', fetch: 'EXTRA_LAZY', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
-    #[Groups(['write', 'translations'])]
+    #[ORM\OneToMany(targetEntity: 'LanguageTranslation', mappedBy: 'translatable', fetch: 'EAGER', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
+    #[Groups(['language:write', 'translations'])]
     protected Collection $translations;
 
-    #[Groups(['read'])]
+    #[Groups(['language:read'])]
     private $name;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::BOOLEAN, nullable: true)]
-    #[Groups(['read', 'write'])]
+    #[Groups(['language:read', 'language:write'])]
     private ?bool $isDefault = false;
+
+    #[ORM\Column(nullable: true)]
+    #[Groups(['language:read', 'language:write'])]
+    private ?bool $isTranslatable = false;
     
     public function __construct()
     {
         $this->translations = new \Doctrine\Common\Collections\ArrayCollection();
         parent::__construct();
     }
-    public function getId() : ?int
+    public function getId() : ?string
     {
         return $this->id;
     }
@@ -141,6 +157,18 @@ class Language extends AbstractTranslatable
     public function setIsDefault(?bool $isDefault) : self
     {
         $this->isDefault = $isDefault;
+        return $this;
+    }
+
+    public function isIsTranslatable(): ?bool
+    {
+        return $this->isTranslatable;
+    }
+
+    public function setIsTranslatable(?bool $isTranslatable): self
+    {
+        $this->isTranslatable = $isTranslatable;
+
         return $this;
     }
 }

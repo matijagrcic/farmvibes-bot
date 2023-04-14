@@ -32,10 +32,10 @@ class ValidationAttribute extends AbstractTranslatable
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
     #[Assert\Uuid]
-    #[Groups(['validation:read', 'validationAttribute:read', 'questionType:read', 'service:read'])]
+    #[Groups(['validation:read', 'validationAttribute:read', 'questionType:read', 'service:read','questionValidation:read'])]
     private $id;
     
-    #[Groups(['validationAttribute:read', 'translations', 'questionType:read'])]
+    #[Groups(['validationAttribute:read', 'onebot:read', 'questionType:read'])]
     protected $description;
     
     /**
@@ -45,11 +45,11 @@ class ValidationAttribute extends AbstractTranslatable
     #[Groups(['validationAttribute:write'])]
     private \Doctrine\Common\Collections\Collection $validation;
     
-    #[Groups(['validation:read', 'validationAttribute:read', 'translations'])]
+    #[Groups(['validation:read', 'validationAttribute:read', 'onebot:read'])]
     protected $errorMessage;
     
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255)]
-    #[Groups(['validation:read', 'validationAttribute:read', 'validationAttribute:write', 'questionType:read', 'service:read'])]
+    #[Groups(['validation:read', 'validationAttribute:read', 'validationAttribute:write', 'questionType:read', 'service:read', 'onebot:read'])]
     private ?string $expression = null;
     
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE)]
@@ -64,7 +64,7 @@ class ValidationAttribute extends AbstractTranslatable
      * @var \Doctrine\Common\Collections\Collection<int, \App\Entity\ValidationAttributeTranslation>|\App\Entity\ValidationAttributeTranslation[]
      */
     #[ORM\OneToMany(targetEntity: ValidationAttributeTranslation::class, mappedBy: 'translatable', fetch: 'EXTRA_LAZY', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
-    #[Groups(['validationAttribute:write', 'translations', 'validation:read'])]
+    #[Groups(['validationAttribute:write', 'translations'])]
     protected Collection $translations;
     
     /**
@@ -76,7 +76,7 @@ class ValidationAttribute extends AbstractTranslatable
     private $timezone = 'Africa/Nairobi';
     
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 15)]
-    #[Groups(['validation:read', 'validationAttribute:read', 'validationAttribute:write', 'questionType:read'])]
+    #[Groups(['validation:read', 'validationAttribute:read', 'validationAttribute:write', 'questionType:read', 'onebot:read'])]
     private ?string $type = "Regex";
     
     public function __construct()

@@ -19,48 +19,58 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslatable;
 use Locastic\ApiPlatformTranslationBundle\Model\TranslationInterface;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
-#[ApiResource(normalizationContext: ['groups' => ['administrativeUnit:read']], denormalizationContext: ['groups' => ['administrativeUnit:write']], filters: ['translation.groups'])]
+#[ApiResource(normalizationContext: ['groups' => ['administrativeUnit:read']], denormalizationContext: ['groups' => ['administrativeUnit:write']], order: ['translations.name' => 'ASC'])]
 #[ORM\Entity(repositoryClass: AdministrativeUnitRepository::class)]
+#[ApiResource(filters: ['translation.groups'])]
 #[ORM\HasLifecycleCallbacks]
 class AdministrativeUnit extends AbstractTranslatable
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
     #[Groups(['administrativeUnit:read'])]
-    private ?int $id = null;
+    private $id;
+
     #[Groups(['administrativeUnit:read', 'administrativeUnit:write'])]
     private $name;
+
     /**
      * @var \Doctrine\Common\Collections\Collection<\App\Entity\Location>
      */
     #[ORM\OneToMany(targetEntity: Location::class, mappedBy: 'type', orphanRemoval: true)]
     #[Groups(['administrativeUnit:write'])]
     private \Doctrine\Common\Collections\Collection $locations;
+
     #[ApiProperty(readableLink: false)]
     #[ORM\ManyToOne(targetEntity: AdministrativeUnit::class, inversedBy: 'children')]
     #[Groups(['administrativeUnit:write', 'administrativeUnit:read'])]
     private ?\App\Entity\AdministrativeUnit $parent = null;
+
     /**
      * @var \Doctrine\Common\Collections\Collection<\App\Entity\AdministrativeUnit>     
      */
     #[ORM\OneToMany(targetEntity: AdministrativeUnit::class, mappedBy: 'parent')]
     #[Groups(['administrativeUnit:write'])]
     private \Doctrine\Common\Collections\Collection $children;
+
     /**
      * @var \Doctrine\Common\Collections\Collection<int, \App\Entity\AdministrativeUnitTranslation>|\App\Entity\AdministrativeUnitTranslation[]
      */
     #[ORM\OneToMany(targetEntity: AdministrativeUnitTranslation::class, mappedBy: 'translatable', fetch: 'EXTRA_LAZY', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
     #[Groups(['administrativeUnit:write', 'translations'])]
     protected Collection $translations;
+
     public function __construct()
     {
         $this->translations = new \Doctrine\Common\Collections\ArrayCollection();
         $this->locations = new ArrayCollection();
         $this->children = new ArrayCollection();
     }
-    public function getId() : ?int
+    public function getId() : ?string
     {
         return $this->id;
     }

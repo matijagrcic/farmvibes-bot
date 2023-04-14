@@ -16,19 +16,23 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Doctrine\DBAL\Types\Types;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ApiResource]
 #[ORM\Entity(repositoryClass: MenuNodeTypeRepository::class)]
 class MenuNodeType
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    #[Groups(['read'])]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    #[Groups(['read','uxMenus:tree', 'onebot:read'])]
+    private $id;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 50)]
-    #[Groups(['read'])]
+    #[ORM\Column(type: Types::STRING, length: 50)]
+    #[Groups(['read','uxMenus:tree', 'onebot:read'])]
     private ?string $name = null;
 
     /**
@@ -41,7 +45,7 @@ class MenuNodeType
     {
         $this->menuNodes = new ArrayCollection();
     }
-    public function getId() : ?int
+    public function getId() : ?string
     {
         return $this->id;
     }

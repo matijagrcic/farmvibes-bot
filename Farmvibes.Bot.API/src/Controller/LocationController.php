@@ -56,9 +56,6 @@ class LocationController extends AbstractController
         else if (str_contains($request->getRequestUri(), 'ux_list')) { 
             return $this->locations_for_ux($locale,$type,$page);    
          }
-         else if (str_contains($request->getRequestUri(), 'administrative_unit')) { 
-            return $this->get_by_administration_units($type,$page);    
-         }
         else
         {
             $units = $this->get_administration_units(true);
@@ -88,16 +85,6 @@ class LocationController extends AbstractController
         $read_statement = $em->getConnection()->prepare($read_sql);
         $r_result = $read_statement->execute()->fetchAll(); 
         return $r_result;
-    }
-
-    /**
-     * This function returns the list of locations filtered by administrative units for display on the UX.
-     */
-    public function get_by_administration_units($type)
-    {
-        $em = $this->doctrine->getManager();
-        $locations = $em->getRepository(Location::class)->findBy(['type' => $type]);
-        return $locations;
     }
 
     /**

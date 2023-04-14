@@ -19,8 +19,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 use App\Controller\UserByChannelId;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 
 #[ApiResource(operations: [new Get(), new Patch(), new Delete(), new Put(), new Get(uriTemplate: '/bot_users/{channelId}/find', controller: UserByChannelId::class, read: false, openapiContext: ['parameters' => [['name' => 'channelId', 'in' => 'path', 'description' => 'The id of user assigned by channel', 'type' => 'string', 'required' => true, 'example' => '254722123456']]]), new Post(), new GetCollection()], order: ['createdAt' => 'DESC'], normalizationContext: ['groups' => ['botUser:read']], denormalizationContext: ['groups' => ['botUser:write']])]
+#[ApiFilter(SearchFilter::class, properties: ['botUserContacts.value' => 'exact', 'botUserContacts.channel_id' => 'exact'])]
 #[ORM\Entity(repositoryClass: BotUserRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 class BotUser
@@ -60,10 +62,6 @@ class BotUser
     #[Assert\NotBlank]
     private \Doctrine\Common\Collections\Collection $botUserContacts;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::JSON)]
-    #[Groups(['botUser:read', 'botUser:write'])]
-    private $location = [];
-
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE, nullable: true)]
     private $updatedAt;
 
@@ -97,15 +95,6 @@ class BotUser
     public function setcreatedAt(\DateTimeImmutable $createdAt) : self
     {
         $this->createdAt = $createdAt;
-        return $this;
-    }
-    public function getGender() : ?string
-    {
-        return $this->gender;
-    }
-    public function setGender(string $gender) : self
-    {
-        $this->gender = $gender;
         return $this;
     }
     public function getStatus() : ?string
@@ -149,15 +138,6 @@ class BotUser
                 $botUserContact->setUser(null);
             }
         }
-        return $this;
-    }
-    public function getLocation() : ?array
-    {
-        return $this->location;
-    }
-    public function setLocation(array $location) : self
-    {
-        $this->location = $location;
         return $this;
     }
     public function getAge() : ?string

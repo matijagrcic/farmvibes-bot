@@ -21,8 +21,20 @@ use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 use Symfony\Component\Validator\Constraints as Assert;
 use Doctrine\Persistence\Event\LifecycleEventArgs;
 use Symfony\Component\Serializer\Annotation\Groups;
+use ApiPlatform\Metadata\Link;
 
 #[ApiResource(normalizationContext: ['groups' => ['questionValidation:read']], denormalizationContext: ['groups' => ['questionValidation:write']], filters: ['translation.groups'])]
+#[ApiResource(uriTemplate: '/question/{questionId}/validations', 
+    uriVariables: [
+        'questionId' => new Link(
+            fromClass: Question::class,
+            fromProperty: 'questionValidations'
+        )
+    ],
+    order: ['createdAt' => 'ASC'],
+    operations: [new GetCollection()],
+    filters: ['translation.groups'])
+]
 #[ORM\Entity(repositoryClass: QuestionValidationRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 class QuestionValidation extends AbstractTranslatable
@@ -40,19 +52,19 @@ class QuestionValidation extends AbstractTranslatable
     #[Groups(['questionValidation:write'])]
     private ?\App\Entity\Question $question = null;
     
-    #[Groups(['questionValidation:read', 'question:read', 'question:write', 'translations'])]
+    #[Groups(['questionValidation:read', 'question:read', 'question:write', 'onebot:read'])]
     protected $errorMessage;
     
     #[ORM\ManyToOne(targetEntity: ValidationAttribute::class, inversedBy: 'questionValidations')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['service:read', 'questionValidation:read', 'questionValidation:write', 'question:write'])]
+    #[Groups(['service:read', 'questionValidation:read', 'questionValidation:write', 'question:write', 'onebot:read'])]
     private ?\App\Entity\ValidationAttribute $validationAttribute = null;
     
     /**
      * @var \Doctrine\Common\Collections\Collection<int, \App\Entity\QuestionValidationTranslation>|\App\Entity\QuestionValidationTranslation[]
      */
-    #[ORM\OneToMany(targetEntity: QuestionValidationTranslation::class, mappedBy: 'translatable', fetch: 'EXTRA_LAZY', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
-    #[Groups(['translations', 'question:read', 'questionValidation:read', 'questionValidation:write'])]
+    #[ORM\OneToMany(targetEntity: QuestionValidationTranslation::class, mappedBy: 'translatable', fetch: 'EAGER', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
+    #[Groups(['questionValidation:write', 'translations'])]
     protected Collection $translations;
     
     private $timezone = 'Africa/Nairobi';
@@ -66,11 +78,11 @@ class QuestionValidation extends AbstractTranslatable
     private $updatedAt;
     
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 100)]
-    #[Groups(['questionValidation:read', 'question:read', 'questionValidation:write', 'service:read'])]
+    #[Groups(['questionValidation:read', 'question:read', 'questionValidation:write', 'service:read', 'onebot:read'])]
     private ?string $expectedInput = null;
     
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
-    #[Groups(['questionValidation:read', 'question:read', 'questionValidation:write', 'service:read'])]
+    #[Groups(['questionValidation:read', 'question:read', 'questionValidation:write', 'service:read', 'onebot:read'])]
     private ?string $expression = null;
     
     public function __construct()

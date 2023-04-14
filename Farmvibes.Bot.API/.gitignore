@@ -1,4 +1,3 @@
-
 ###> symfony/framework-bundle ###
 # /.env*
 /.env.local
@@ -11,16 +10,14 @@
 /migrations
 /config/secrets
 ###< symfony/framework-bundle ###
-/composer.lock
+# /composer.lock Removed because of deployment to heroku
 /symfony.lock
+
+.symfony.local.yaml
 
 ###> rector bundle for code formatting ###
 /rector.php
 ###> rector bundle for code formatting ###
-
-###> lexik/jwt-authentication-bundle ###
-/config/jwt/*.pem
-###< lexik/jwt-authentication-bundle ###
 /.phpdoc*
 /.phpdoc/cache/
 /.phpdoc/cache/*
@@ -29,3 +26,4 @@
 .phpunit.result.cache
 /phpunit.xml
 ###< symfony/phpunit-bridge ###
+

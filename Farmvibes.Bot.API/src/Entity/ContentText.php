@@ -6,7 +6,9 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Link;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiFilter;
 use App\Repository\ContentTextRepository;
@@ -14,88 +16,138 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
+use ApiPlatform\Action\NotFoundAction;
+use Doctrine\DBAL\Types\Types;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
-// #[ApiResource(operations: [new Patch(), new Delete(), new Get(), new GetCollection()], order: ['createdAt' => 'DESC'], paginationPartial: true, normalizationContext: ['groups' => ['contentText:read']], denormalizationContext: ['groups' => ['contentText:write']], filters: ['translation.groups'])]
+#[ApiResource(order: ['createdAt' => 'DESC'],operations: [new Post(normalizationContext: ['groups' => ['translations','content:read']]), new Get(), new Delete(), new Patch()])]
+#[ApiResource(uriTemplate: '/contents/{contentId}/add_text', 
+    uriVariables: [
+        'contentId' => new Link(
+            fromClass: Content::class,
+            fromProperty: 'text'
+        )
+    ],
+    operations: [new Post()])
+]
+#[ApiResource(uriTemplate: '/contents/{contentId}/update_text/{id}', 
+    uriVariables: [
+        'contentId' => new Link(
+            fromClass: Content::class,
+            fromProperty: 'text'
+        ),
+        'id' => new Link(
+            fromClass: ContentText::class
+        )
+    ],
+    operations: [new Patch(normalizationContext: ['groups' => ['content:read','translations']])])
+]
+#[ApiResource(uriTemplate: '/contents/{contentId}/all_text', 
+    uriVariables: [
+        'contentId' => new Link(
+            fromClass: Content::class,
+            fromProperty: 'text'
+        )
+    ],
+    operations: [new GetCollection()])
+]
+#[ApiResource(uriTemplate: '/contents/{contentId}/text/{id}', 
+    uriVariables: [
+        'contentId' => new Link(
+            fromClass: Content::class,
+            fromProperty: 'content'
+        ),
+        'id' => new Link(
+            fromClass: ContentText::class
+        )
+    ],
+    operations: [new Get()])
+]
+
 #[ORM\Entity]
 #[ORM\HasLifecycleCallbacks]
 class ContentText
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    #[Groups(['contentText:read', 'content:read'])]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    #[Groups('content:read')]
+    private $id;
 
     /**
      * @var \Doctrine\Common\Collections\Collection<\App\Entity\ContentTextConstraint>
      */
     #[ORM\OneToMany(targetEntity: ContentTextConstraint::class, mappedBy: 'text', orphanRemoval: true, cascade: ['PERSIST'])]
-    #[Groups(['contentText:read', 'contentText:write', 'content:read', 'content:write'])]
-    private \Doctrine\Common\Collections\Collection $contentTextConstraints;
+    #[Groups(['content:read', 'content:write','onebot:read'])]
+    private Collection $constraints;
 
     #[ORM\ManyToOne(targetEntity: Content::class, inversedBy: 'text')]
     #[ORM\JoinColumn(nullable: false)]
     private ?\App\Entity\Content $content = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE, nullable: true)]
-    #[Groups(['contentText:read'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups('content:read')]
     private $createdAt;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE, nullable: true)]
-    #[Groups(['contentText:read'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups('content:read')]
     private $updatedAt;
 
     public $timezone = 'Africa/Nairobi';
     /**
      * @var \Doctrine\Common\Collections\Collection<\App\Entity\ContentTextVariant>
      */
-    #[ORM\OneToMany(targetEntity: ContentTextVariant::class, mappedBy: 'contentText', orphanRemoval: true, cascade: ['persist'])]
-    #[Groups(['contentText:read', 'contentText:write', 'translations', 'content:read', 'content:write'])]
-    private \Doctrine\Common\Collections\Collection $contentTextVariants;
+    #[ORM\OneToMany(targetEntity: ContentTextVariant::class, mappedBy: 'contentText', orphanRemoval: true, cascade: ['PERSIST', 'REMOVE'])]
+    #[Groups([ 'content:read', 'content:write', 'onebot:read'])]
+    #[ApiProperty(writableLink: true)]
+    private Collection $contentTextVariants;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::BOOLEAN)]
-    #[Groups(['contentText:read', 'contentText:write', 'content:read', 'content:write'])]
+    #[ORM\Column(type: Types::BOOLEAN)]
+    #[Groups(['content:read', 'content:write'])]
     private ?bool $isPublished = false;
-
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::JSON)]
-    #[Groups(['contentText:read', 'contentText:write', 'content:read', 'content:write'])]
+    
+    #[ORM\Column(type: Types::JSON)]
+    #[Groups(['content:read', 'content:write'])]
     private $raw = [];
 
     public function __construct()
     {
-        $this->contentTextConstraints = new ArrayCollection();
+        $this->constraints = new ArrayCollection();
         $this->contentTextVariants = new ArrayCollection();
     }
 
-    public function getId() : ?int
+    public function getId() : ?string
     {
         return $this->id;
     }
     /**
      * @return Collection|ContentTextConstraint[]
      */
-    public function getContentTextConstraints() : Collection
+    public function getConstraints() : Collection
     {
-        return $this->contentTextConstraints;
+        return $this->constraints;
     }
-    public function addContentTextConstraint(ContentTextConstraint $contentTextConstraint) : self
+    public function addConstraint(ContentTextConstraint $constraint) : self
     {
-        if (!$this->contentTextConstraints->contains($contentTextConstraint)) {
-            $this->contentTextConstraints[] = $contentTextConstraint;
-            $contentTextConstraint->setText($this);
+        if (!$this->constraints->contains($constraint)) {
+            $this->constraints[] = $constraint;
+            $constraint->setText($this);
         }
         return $this;
     }
-    public function removeContentTextConstraint(ContentTextConstraint $contentTextConstraint) : self
+    public function removeConstraint(ContentTextConstraint $constraint) : self
     {
-        if ($this->contentTextConstraints->removeElement($contentTextConstraint)) {
+        if ($this->constraints->removeElement($constraint)) {
             // set the owning side to null (unless already changed)
-            if ($contentTextConstraint->getText() === $this) {
-                $contentTextConstraint->setText(null);
+            if ($constraint->getText() === $this) {
+                $constraint->setText(null);
             }
         }
         return $this;
     }
+    
     public function getContent() : ?Content
     {
         return $this->content;

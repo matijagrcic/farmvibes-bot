@@ -21,69 +21,77 @@ use App\Controller\ContentTextPersist;
 use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslatable;
 use Locastic\ApiPlatformTranslationBundle\Model\TranslationInterface;
 use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
+use Doctrine\DBAL\Types\Types;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Serializer\Filter\GroupFilter;
+use Metaclass\FilterBundle\Filter\FilterLogic;
 
-#[ApiResource(operations: [new Get(), new Patch(), new Delete(), new Put(), new Post(uriTemplate: '/contents/add_text', controller: ContentTextPersist::class, read: false, openapiContext: ['description' => 'This endpoint provides a way to add content text and variants to a content object without incurring circular reference issue as a result of the nested nature of the Content -> ContentText and ContentTextVariants.', 'summary' => 'Persist new content text item and it\'s translations.']), new Post(), new GetCollection()], order: ['createdAt' => 'DESC'], normalizationContext: ['groups' => ['content:read']], denormalizationContext: ['groups' => ['content:write']], filters: ['translation.groups'])]
+#[ApiResource(order: ['createdAt' => 'DESC'],operations: [new Post(normalizationContext: ['groups' => ['content:read','translations']]), new Get(), new Delete(), new Patch(), new GetCollection()])]
+#[ApiResource(normalizationContext: ['groups' => ['content:read','uxLibrary:read']])]
+#[ApiResource(denormalizationContext: ['groups' => ['content:write']])]
+#[ApiResource(filters: ['translation.groups'])]
+#[ApiFilter(SearchFilter::class, properties: ['translations.label' => 'ipartial', 'text.contentTextVariants.translations.text' => 'ipartial'])]
+#[ApiFilter(GroupFilter::class, arguments: ['parameterName' => 'groups', 'overrideDefaultGroups' => false, 'whitelist' => ['uxMenus:read','translations','uxLibrary:read','content:read', 'onebot:read']])]
+#[ApiFilter(FilterLogic::class)]
 #[ORM\Entity]
 #[ORM\HasLifecycleCallbacks]
 class Content extends AbstractTranslatable
 {
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
+    #[ORM\Column(type: Types::GUID)]
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
     #[Assert\Uuid]
-    #[Groups(['content:read', 'menuNode:read'])]
+    #[Groups(['content:read', 'uxMenus:read', 'onebot:read','uxLibrary:read'])]
     private $id;
 
     /**
-     * @var \Doctrine\Common\Collections\Collection<\App\Entity\Media>
+     * @var Collection<Media>
      */
-    #[ORM\ManyToMany(targetEntity: Media::class, inversedBy: 'contents', cascade: ['persist'])]
+    #[ORM\ManyToMany(targetEntity: Media::class, inversedBy: 'contents', cascade: ['persist','remove'])]
     #[Groups(['content:read', 'content:write'])]
-    private \Doctrine\Common\Collections\Collection $media;
+    private Collection $media;
 
     /**
-     * @var \Doctrine\Common\Collections\Collection<\App\Entity\ContentConstraint>
+     * @var Collection<ContentText>
      */
-    #[ORM\OneToMany(targetEntity: ContentConstraint::class, mappedBy: 'content', orphanRemoval: true, cascade: ['persist'])]
-    #[Groups(['content:read', 'content:write'])]
-    private \Doctrine\Common\Collections\Collection $constraints;
-
+    #[ORM\OneToMany(targetEntity: ContentText::class, mappedBy: 'content', orphanRemoval: true, cascade: ['persist','remove'])]
+    #[Groups(['content:read', 'content:write', 'onebot:read', 'uxLibrary:read'])]
+    #[ApiProperty(writableLink: true)]
+    private Collection $text;
     /**
-     * @var \Doctrine\Common\Collections\Collection<int, \App\Entity\ContentText>|\App\Entity\ContentText[]
+     * @var Collection<MenuNode>
      */
-    #[ORM\OneToMany(targetEntity: ContentText::class, mappedBy: 'content', orphanRemoval: true, cascade: ['persist'])]
-    #[Groups(['content:read', 'content:write'])]
-    private iterable $text;
+    #[ORM\OneToMany(targetEntity: MenuNode::class, mappedBy: 'content', orphanRemoval: true, cascade: ['persist','remove'])]
+    private Collection $menuNodes;
 
-    /**
-     * @var \Doctrine\Common\Collections\Collection<\App\Entity\MenuNode>
-     */
-    #[ORM\OneToMany(targetEntity: MenuNode::class, mappedBy: 'content', orphanRemoval: true, cascade: ['persist'])]
-    private \Doctrine\Common\Collections\Collection $menuNodes;
-
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE)]
-    #[Groups(['content:read'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
+    #[Groups(['content:read','uxLibrary:read'])]
     private $createdAt;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE, nullable: true)]
-    #[Groups(['content:read'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups(['content:read','uxLibrary:read'])]
     private $updatedAt;
 
     #[Groups(['content:read'])]
     protected $label;
     /**
-     * @var \Doctrine\Common\Collections\Collection<int, \App\Entity\ContentTranslation>|\App\Entity\ContentTranslation[]
+     * @var Collection<int, ContentTranslation>|ContentTranslation[]
      */
-    #[ORM\OneToMany(targetEntity: 'ContentTranslation', mappedBy: 'translatable', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
+    #[ORM\OneToMany(targetEntity: 'ContentTranslation', mappedBy: 'translatable', indexBy: 'locale', cascade: ['persist','remove'], orphanRemoval: true)]
     #[Groups(['content:write', 'translations'])]
     protected Collection $translations;
 
     public $timezone = 'Africa/Nairobi';
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::BOOLEAN, nullable: true)]
-    #[Groups(['content:read', 'content:write'])]
+    #[ORM\Column(type: Types::BOOLEAN, nullable: true)]
+    #[Groups(['content:read', 'content:write','uxLibrary:read'])]
     private ?bool $isPublished = null;
+
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::JSON)]
+    #[ORM\JoinColumn(nullable: true)]
+    #[Groups(['content:read', 'content:write', 'onebot:read'])]
+    private $tags = [];
 
     public function __construct()
     {
@@ -117,31 +125,7 @@ class Content extends AbstractTranslatable
         $this->media->removeElement($medium);
         return $this;
     }
-    /**
-     * @return Collection|ContentConstraint[]
-     */
-    public function getConstraints() : Collection
-    {
-        return $this->constraints;
-    }
-    public function addConstraint(ContentConstraint $constraint) : self
-    {
-        if (!$this->constraints->contains($constraint)) {
-            $this->constraints[] = $constraint;
-            $constraint->setContent($this);
-        }
-        return $this;
-    }
-    public function removeConstraint(ContentConstraint $constraint) : self
-    {
-        if ($this->constraints->removeElement($constraint)) {
-            // set the owning side to null (unless already changed)
-            if ($constraint->getContent() === $this) {
-                $constraint->setContent(null);
-            }
-        }
-        return $this;
-    }
+
     /**
      * @throws \Exception
      */
@@ -248,4 +232,17 @@ class Content extends AbstractTranslatable
         $this->getTranslation()->setLabel($label);
         return $this;
     }
+
+    public function getTags(): ?array
+    {
+        return $this->tags;
+    }
+
+    public function setTags(array $tags): self
+    {
+        $this->tags = $tags;
+
+        return $this;
+    }
+
 }

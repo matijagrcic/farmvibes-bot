@@ -10,6 +10,8 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\PasswordUpgraderInterface;
 
 /**
+ * @extends ServiceEntityRepository<AdminUser>
+ *
  * @method AdminUser|null find($id, $lockMode = null, $lockVersion = null)
  * @method AdminUser|null findOneBy(array $criteria, array $orderBy = null)
  * @method AdminUser[]    findAll()
@@ -22,6 +24,24 @@ class AdminUserRepository extends ServiceEntityRepository implements PasswordUpg
         parent::__construct($registry, AdminUser::class);
     }
 
+    public function save(AdminUser $entity, bool $flush = false): void
+    {
+        $this->getEntityManager()->persist($entity);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    public function remove(AdminUser $entity, bool $flush = false): void
+    {
+        $this->getEntityManager()->remove($entity);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
     /**
      * Used to upgrade (rehash) the user's password automatically over time.
      */
@@ -32,36 +52,32 @@ class AdminUserRepository extends ServiceEntityRepository implements PasswordUpg
         }
 
         $user->setPassword($newHashedPassword);
-        $this->_em->persist($user);
-        $this->_em->flush();
+
+        $this->save($user, true);
     }
 
-    // /**
-    //  * @return AdminUser[] Returns an array of AdminUser objects
-    //  */
-    /*
-    public function findByExampleField($value)
-    {
-        return $this->createQueryBuilder('a')
-            ->andWhere('a.exampleField = :val')
-            ->setParameter('val', $value)
-            ->orderBy('a.id', 'ASC')
-            ->setMaxResults(10)
-            ->getQuery()
-            ->getResult()
-        ;
-    }
-    */
+//    /**
+//     * @return AdminUser[] Returns an array of AdminUser objects
+//     */
+//    public function findByExampleField($value): array
+//    {
+//        return $this->createQueryBuilder('a')
+//            ->andWhere('a.exampleField = :val')
+//            ->setParameter('val', $value)
+//            ->orderBy('a.id', 'ASC')
+//            ->setMaxResults(10)
+//            ->getQuery()
+//            ->getResult()
+//        ;
+//    }
 
-    /*
-    public function findOneBySomeField($value): ?AdminUser
-    {
-        return $this->createQueryBuilder('a')
-            ->andWhere('a.exampleField = :val')
-            ->setParameter('val', $value)
-            ->getQuery()
-            ->getOneOrNullResult()
-        ;
-    }
-    */
+//    public function findOneBySomeField($value): ?AdminUser
+//    {
+//        return $this->createQueryBuilder('a')
+//            ->andWhere('a.exampleField = :val')
+//            ->setParameter('val', $value)
+//            ->getQuery()
+//            ->getOneOrNullResult()
+//        ;
+//    }
 }

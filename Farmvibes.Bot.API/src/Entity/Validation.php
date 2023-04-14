@@ -35,7 +35,7 @@ class Validation extends AbstractTranslatable
     #[Groups(['validation:read', 'questionType:read'])]
     private $id;
     
-    #[Groups(['validation:read', 'translations'])]
+    #[Groups(['validation:read', 'onebot:read'])]
     protected $description;
     
     /**
@@ -64,7 +64,7 @@ class Validation extends AbstractTranslatable
      * @var \Doctrine\Common\Collections\Collection<\App\Entity\ValidationAttribute>
      */
     #[ORM\ManyToMany(targetEntity: ValidationAttribute::class, mappedBy: 'validation')]
-    #[Groups(['questionType:read', 'validation:read'])]
+    #[Groups(['questionType:read', 'validation:read', 'onebot:read'])]
     private \Doctrine\Common\Collections\Collection $validationAttributes;
     
     private $timezone = 'Africa/Nairobi';

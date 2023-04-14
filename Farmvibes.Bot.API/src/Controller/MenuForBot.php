@@ -45,7 +45,14 @@ class MenuForBot extends AbstractController
 
         return $tree;
     }
-
+    
+    /**
+     * arrayReplace
+     *
+     * @param  mixed $array
+     * @param  mixed $find
+     * @return void
+     */
     function arrayReplace($array, $find){
         if(is_array($array)){
             foreach($array as $key=>$val) {

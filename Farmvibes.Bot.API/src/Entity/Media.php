@@ -22,13 +22,14 @@ use App\Controller\MediaUploadController;
 use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslatable;
 use Locastic\ApiPlatformTranslationBundle\Model\TranslationInterface;
+use Doctrine\DBAL\Types\Types;
 
 #[ApiResource(operations: [new Get(), new Put(), new Patch(), new Delete(), new GetCollection(), new Post(uriTemplate: '/media/upload_media_file', controller: MediaUploadController::class, deserialize: false, openapiContext: ['requestBody' => ['description' => 'File Upload', 'required' => true, 'content' => ['multipart/form-data' => ['schema' => ['type' => 'object', 'properties' => ['file' => ['type' => 'string', 'format' => 'binary', 'description' => 'File to be uploaded'], 'description' => ['description' => 'User may use this property field to give a description about the media file being uploaded.', 'type' => 'string', 'required' => true], 'caption' => ['description' => 'Caption text that would appear when the media content associated with this caption is been rendered by the bot to the user.', 'type' => 'string', 'required' => true]]]]]]])], normalizationContext: ['groups' => ['media:read'], 'swagger_definition_name' => 'Read'], denormalizationContext: ['groups' => ['media:write'], 'swagger_definition_name' => 'Write'])]
 #[ORM\Entity]
 #[ORM\HasLifecycleCallbacks]
 class Media extends AbstractTranslatable
 {
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
+    #[ORM\Column(type: Types::GUID)]
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
@@ -36,21 +37,21 @@ class Media extends AbstractTranslatable
     #[Groups(['media:read', 'service:read', 'question:read', 'content:read'])]
     private $id;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 20)]
+    #[ORM\Column(type: Types::STRING, length: 20)]
     #[Groups(['media:read', 'service:read', 'question:read', 'content:read'])]
     private ?string $filetype = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255)]
+    #[ORM\Column(type: Types::STRING, length: 255)]
     #[Groups(['media:read', 'media:write', 'service:read', 'question:read', 'content:read'])]
     private ?string $description = null;
 
     #[Groups(['media:read', 'media:write', 'service:read', 'question:read', 'content:read'])]
     private $caption;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE)]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private $createdAt;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private $updatedAt;
 
     /**
@@ -79,7 +80,7 @@ class Media extends AbstractTranslatable
 
     public $timezone = 'Africa/Nairobi';
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 512)]
+    #[ORM\Column(type: Types::STRING, length: 512)]
     #[Groups(['media:read', 'service:read', 'question:read', 'content:read'])]
     private ?string $pathUrl = null;
 

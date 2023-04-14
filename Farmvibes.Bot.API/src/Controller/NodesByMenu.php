@@ -27,13 +27,14 @@ class NodesByMenu extends AbstractController
             
         $query = $this->doctrine->getManager()
             ->createQueryBuilder()
-            ->select('tree,nodetype as type,translations','contents as contentItem','services as serviceItem')
+            ->select('tree, nodetype as type, translations', 'services', 'contents', 'constraints', 'menuConstraintItem')
             ->from(MenuNode::class, 'tree')
             ->join('tree.type','nodetype')
             ->leftJoin('tree.translations','translations')
             ->leftJoin('tree.constraints','constraints')
-            ->leftJoin('tree.content','contents')
+            ->leftJoin('constraints.constraintItem', 'menuConstraintItem')
             ->leftJoin('tree.service','services')
+            ->leftJoin('tree.content','contents')
             ->orderBy('tree.root, tree.lft', 'ASC')
         ;
 

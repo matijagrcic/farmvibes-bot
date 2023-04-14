@@ -9,31 +9,32 @@ use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslation;
 use Locastic\ApiPlatformTranslationBundle\Model\TranslatableInterface;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Serializer\Annotation\Groups;
-
-
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ORM\Entity]
 class AdministrativeUnitTranslation extends AbstractTranslation
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
     #[Groups(['administrativeUnit:read'])]
-    private ?int $id = null;
+    private $id;
 
     #[ORM\ManyToOne(targetEntity: AdministrativeUnit::class, inversedBy: 'translations')]
     protected ?TranslatableInterface $translatable = null;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255)]
     #[Assert\NotBlank]
-    #[Groups(['administrativeUnit:read', 'administrativeUnit:write', 'translations'])]
+    #[Groups(['administrativeUnit:write', 'translations'])]
     private ?string $name = null;
     
-     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING)]
-    #[Groups(['administrativeUnit:write', 'translations'])]
+     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 7)]
+    #[Groups(['administrativeUnit:write','translations'])]
     protected ?string $locale = null;
 
-    public function getId(): ?int
+    public function getId(): ?string
     {
         return $this->id;
     }

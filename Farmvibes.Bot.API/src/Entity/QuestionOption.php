@@ -20,17 +20,30 @@ use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslatable;
 use Locastic\ApiPlatformTranslationBundle\Model\TranslationInterface;
 use Symfony\Component\Serializer\Annotation\Ignore;
 use Symfony\Component\Serializer\Annotation\MaxDepth;
+use Doctrine\DBAL\Types\Types;
+use ApiPlatform\Metadata\Link;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
-#[ApiResource(normalizationContext: ['groups' => ['questionOption:read']], denormalizationContext: ['groups' => ['questionOption:write']])]
+#[ApiResource(operations:[new GetCollection(
+    uriTemplate: '/questions/{questionId}/options', 
+    uriVariables: [
+        'questionId' => new Link(
+            fromClass: Question::class,
+            fromProperty: 'questionOptions'
+        )
+    ],
+    order: ['translations.value' => 'ASC'])])]
 #[ORM\Entity]
 #[ORM\HasLifecycleCallbacks]
 class QuestionOption extends AbstractTranslatable
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    #[Groups(['questionOption:read', 'service:read'])]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    #[Groups(['question:read','uxQuestionRequest:read', 'service:read', 'onebot:read'])]
+    private $id;
 
     #[ORM\ManyToOne(targetEntity: Question::class, inversedBy: 'questionOptions')]
     #[ORM\JoinColumn(nullable: false)]
@@ -39,24 +52,32 @@ class QuestionOption extends AbstractTranslatable
     /**
      *  @var string
      */
-    #[Groups(['questionOption:read', 'translations'])]
+    #[Groups(['translations'])]
     protected $value;
 
     /**
      * @var \Doctrine\Common\Collections\Collection<int, \App\Entity\QuestionOptionTranslation>|\App\Entity\QuestionOptionTranslation[]
      */
-    #[ORM\OneToMany(targetEntity: QuestionOptionTranslation::class, mappedBy: 'translatable', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
-    #[Groups(['questionOption:write', 'questionOption:read', 'translations', 'service:write', 'question:write', 'question:read'])]
+    #[ORM\OneToMany(targetEntity: QuestionOptionTranslation::class, mappedBy: 'translatable', indexBy: 'locale', cascade: ['PERSIST','REMOVE'], orphanRemoval: true)]
+    #[Groups(['translations', 'service:write', 'question:write'])]
     protected Collection $translations;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
+    #[Groups(['question:read'])]
+    private $createdAt;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups(['question:read'])]
+    private $updatedAt;
 
     public $timezone = 'Africa/Nairobi';
     
     public function __construct()
     {
-        $this->translations = new \Doctrine\Common\Collections\ArrayCollection();
+        $this->translations = new ArrayCollection();
         parent::__construct();
     }
-    public function getId() : ?int
+    public function getId() : ?string
     {
         return $this->id;
     }
@@ -120,3 +141,4 @@ class QuestionOption extends AbstractTranslatable
         $this->setCreatedAt(new \DateTimeImmutable('now', new \DateTimeZone($this->timezone)));
     }
 }
+

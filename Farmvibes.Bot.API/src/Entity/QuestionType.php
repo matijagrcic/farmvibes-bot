@@ -18,17 +18,22 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslatable;
 use Locastic\ApiPlatformTranslationBundle\Model\TranslationInterface;
+use Doctrine\DBAL\Types\Types;
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 
 #[ApiResource(normalizationContext: ['groups' => ['questionType:read']], denormalizationContext: ['groups' => ['questionType:write']], filters: ['translation.groups'])]
 #[ORM\Entity(repositoryClass: QuestionTypeRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 class QuestionType extends AbstractTranslatable
 {
+
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    #[Groups(['questionType:read', 'question:read', 'translations'])]
-    private ?int $id = null;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
+    #[Groups(['translations'])]
+    private $id;
 
     #[Groups(['question:read', 'service:read', 'questionType:read'])]
     protected $name;
@@ -36,31 +41,33 @@ class QuestionType extends AbstractTranslatable
     #[Groups(['question:read', 'service:read', 'questionType:read'])]
     protected $description;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::BOOLEAN)]
+
+    #[ORM\Column(type: Types::BOOLEAN)]
     #[Groups(['questionType:read', 'questionType:write', 'question:read', 'service:read'])]
     private ?bool $isPublished = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE)]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Groups(['questionType:read', 'question:read', 'service:read'])]
     private $createdAt;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE, nullable: true)]
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     #[Groups(['questionType:read', 'question:read', 'service:read'])]
     private $updatedAt;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
+    #[ORM\Column(type: Types::STRING, length: 255, nullable: true)]
     #[Groups(['questionType:read', 'questionType:write', 'question:read', 'service:read'])]
     private ?string $icon = null;
 
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::BOOLEAN, nullable: true)]
+    #[ORM\Column(type: Types::BOOLEAN, nullable: true)]
     #[Groups(['questionType:read', 'questionType:write', 'question:read', 'service:read'])]
     private ?bool $hasOptions = false;
 
     /**
      * @var \Doctrine\Common\Collections\Collection<int, \App\Entity\QuestionTypeTranslation>|\App\Entity\QuestionTypeTranslation[]
      */
-    #[ORM\OneToMany(targetEntity: QuestionTypeTranslation::class, mappedBy: 'translatable', fetch: 'EXTRA_LAZY', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
-    #[Groups(['questionType:write', 'questionType:read', 'translations', 'question:read', 'service:read', 'validation:read'])]
+    #[ORM\OneToMany(targetEntity: QuestionTypeTranslation::class, mappedBy: 'translatable', fetch: 'EAGER', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
+    #[Groups(['translations', 'questionType:write'])]
     protected Collection $translations;
 
     /**
@@ -68,32 +75,33 @@ class QuestionType extends AbstractTranslatable
      */
     #[ORM\ManyToMany(targetEntity: QuestionTypeAttribute::class, mappedBy: 'questionType')]
     #[Groups(['questionType:read', 'questionType:write', 'service:read', 'question:read', 'service:read'])]
-    private \Doctrine\Common\Collections\Collection $attributes;
+    private Collection $attributes;
 
     /**
      * @var \Doctrine\Common\Collections\Collection<\App\Entity\Validation>
      */
     #[ORM\ManyToMany(targetEntity: Validation::class, mappedBy: 'questionTypes')]
     #[Groups(['questionType:read', 'questionType:write', 'service:read'])]
-    private \Doctrine\Common\Collections\Collection $validations;
+    private Collection $validations;
 
     /**
      * @var \Doctrine\Common\Collections\Collection<\App\Entity\Question>
      */
     #[ORM\OneToMany(targetEntity: Question::class, mappedBy: 'questionType', orphanRemoval: true)]
-    private \Doctrine\Common\Collections\Collection $questions;
+    private Collection $questions;
 
     public $timezone = 'Africa/Nairobi';
 
     public function __construct()
     {
         parent::__construct();
-        $this->translations = new \Doctrine\Common\Collections\ArrayCollection();
+
+        $this->translations = new ArrayCollection();
         $this->attributes = new ArrayCollection();
         $this->validations = new ArrayCollection();
         $this->questions = new ArrayCollection();
     }
-    public function getId() : ?int
+    public function getId() : ?string
     {
         return $this->id;
     }

@@ -18,17 +18,26 @@ use Doctrine\ORM\Mapping as ORM;
 use Locastic\ApiPlatformTranslationBundle\Model\AbstractTranslatable;
 use Locastic\ApiPlatformTranslationBundle\Model\TranslationInterface;
 use Symfony\Component\Serializer\Annotation\Groups;
-#[ApiResource(normalizationContext: ['groups' => ['serviceType:read']], denormalizationContext: ['groups' => ['serviceType:write']], filters: ['translation.groups'])]
+use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
+
+#[ApiResource(
+    normalizationContext: ['groups' => ['serviceType:read']], 
+    order: ['translations.name' => 'ASC'], 
+    denormalizationContext: ['groups' => ['serviceType:write']], 
+    filters: ['translation.groups'])
+    ]
 #[ORM\Entity]
 #[ORM\HasLifecycleCallbacks]
 class ServiceType extends AbstractTranslatable
 {
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::GUID)]
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(name: 'id', type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    #[Assert\Uuid]
     #[Groups(['serviceType:read', 'service:read'])]
     
-    private ?int $id = null;
+    private $id;
     /**
      *  @var string
      */
@@ -36,13 +45,13 @@ class ServiceType extends AbstractTranslatable
     private $name;
     
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
-    #[Groups(['serviceType:read'])]
+    #[Groups(['serviceType:read','serviceType:write'])]
     private ?string $description = null;
     
     /**
      * @var \Doctrine\Common\Collections\Collection<int, \App\Entity\ServiceTypeTranslation>|\App\Entity\ServiceTypeTranslation[]
      */
-    #[ORM\OneToMany(targetEntity: ServiceTypeTranslation::class, mappedBy: 'translatable', fetch: 'EXTRA_LAZY', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
+    #[ORM\OneToMany(targetEntity: ServiceTypeTranslation::class, mappedBy: 'translatable', fetch: 'EAGER', indexBy: 'locale', cascade: ['PERSIST'], orphanRemoval: true)]
     #[Groups(['serviceType:write', 'translations'])]
     protected Collection $translations;
     
@@ -53,15 +62,23 @@ class ServiceType extends AbstractTranslatable
     
     private \Doctrine\Common\Collections\Collection $services;
     
-    private $timezone = 'Africa/Nairobi';
+    #[ORM\Column(nullable: true)]
+    #[Groups(['serviceType:read', 'service:read','serviceType:write'])]
+    private ?bool $isDisabled = true;
+
+    #[ORM\Column(nullable: true)]
+    #[Groups(['serviceType:read', 'service:read','serviceType:write'])]
+    private ?bool $isHidden = false;
     
+    private $timezone = 'Africa/Nairobi';
+
     public function __construct()
     {
         parent::__construct();
         $this->translations = new \Doctrine\Common\Collections\ArrayCollection();
         $this->services = new ArrayCollection();
     }
-    public function getId() : ?int
+    public function getId() : ?string
     {
         return $this->id;
     }
@@ -133,5 +150,29 @@ class ServiceType extends AbstractTranslatable
     protected function createTranslation() : TranslationInterface
     {
         return new ServiceTypeTranslation();
+    }
+
+    public function isIsDisabled(): ?bool
+    {
+        return $this->isDisabled;
+    }
+
+    public function setIsDisabled(?bool $isDisabled): self
+    {
+        $this->isDisabled = $isDisabled;
+
+        return $this;
+    }
+
+    public function isIsHidden(): ?bool
+    {
+        return $this->isHidden;
+    }
+
+    public function setIsHidden(?bool $isHidden): self
+    {
+        $this->isHidden = $isHidden;
+
+        return $this;
     }
 }

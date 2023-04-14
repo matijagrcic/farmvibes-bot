@@ -54,21 +54,24 @@ services:
     arguments:
       - "%env(BLOB_STORAGE_CONNECTION_STRING)%"
 
+  App\EventSubscriber\AdminUserSubscriber:
+    tags:
+      - { name: "doctrine.event_subscriber" }
+
   locastic_api_platform_translation.filter.translation_groups:
     parent: "api_platform.serializer.group_filter"
     tags:
       - { name: "api_platform.filter", id: "translation.groups" }
 
-  App\State\AdminUserProvider: ~
+  App\EventListener\DatabaseOnFlushListener:
+    tags:
+      - # these are the options required to define the entity listener
+        name: "doctrine.event_listener"
+        event: "onFlush"
 
-  # App\Doctrine\TranslationExtension:
-  #     tags:
-  #         - { name: api_platform.doctrine.orm.query_extension.collection }
-  #         - { name: api_platform.doctrine.orm.query_extension.item }
-  # App\OpenApi\JwtDecorator:
-  #     decorates: 'api_platform.openapi.factory'
-  #     autoconfigure: false
-
-  # App\HttpCache\VPurger:
-  #   decorates: "api_platform.http_cache.purger.varnish"
-  #   autoconfigure: true
+  App\EventListener\NewLanguageListener:
+    tags:
+      -
+        name: "kernel.event_listener"
+        event: "kernel.terminate"
+        method: "onKernelTerminate"

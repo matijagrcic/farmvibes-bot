@@ -17,21 +17,21 @@ class ValidationTranslation extends AbstractTranslation
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
     #[Assert\Uuid]
-    #[Groups(['validation:read', 'translations'])]
+    #[Groups(['translations'])]
     private $id;
     
     #[ORM\ManyToOne(targetEntity: 'Validation', inversedBy: 'translations')]
     protected ?TranslatableInterface $translatable = null;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 150)]
-    #[Groups(['validation:read', 'validation:write', 'translations'])]
+    #[Groups(['validation:write', 'translations'])]
     private ?string $description = null;
 
     /**
      * @var null|string
      */
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 5)]
-    #[Groups(['validation:read', 'translations', 'validation:write'])]
+    #[Groups(['translations', 'validation:write'])]
     protected ?string $locale = null;
 
     public function getId(): ?string

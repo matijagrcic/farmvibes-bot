@@ -22,16 +22,21 @@ api_platform:
         name: Authorization
         type: header
   #https://api-platform.com/docs/core/performance/
-  http_cache:
-    invalidation:
-      enabled: true
-    public: true
+  # http_cache:
+  #   invalidation:
+  #     enabled: true
+  # public: true
   defaults:
     cache_headers:
       max_age: 0
       shared_max_age: 3600
       vary: ["Content-Type", "Authorization", "Origin"]
     iri_only: true
+    pagination_client_enabled: true
+    pagination_client_items_per_page: true
   collection:
     pagination:
       enabled_parameter_name: pagination
+      page_parameter_name: _page
+      items_per_page_parameter_name: itemsPerPage
+    exists_parameter_name: "not_null" # the URL query parameter to use is now "not_null"
