@@ -302,7 +302,8 @@ export const generateUUID = () => {
     /[xy]/g,
     function (c) {
       // eslint-disable-next-line no-mixed-operators
-      var r = (d + Math.random() * 16) % 16 | 0;
+      var random = window.crypto.getRandomValues(new Uint32Array(1))[0];
+      var r = (d + random * 16) % 16 | 0;
       d = Math.floor(d / 16);
       // eslint-disable-next-line no-mixed-operators
       return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
